@@ -1,0 +1,16 @@
+annotated-types==0.6.0
+asttokens==2.4.1
+certifi==2024.2.2
+charset-normalizer==3.3.2
+devtools==0.12.2
+executing==2.0.1
+idna==3.7
+pydantic==2.7.1
+pydantic_core==2.18.2
+Pygments==2.17.2
+PyYAML==6.0.1
+requests==2.31.0
+responses==0.25.0
+six==1.16.0
+typing_extensions==4.11.0
+urllib3==2.2.1
