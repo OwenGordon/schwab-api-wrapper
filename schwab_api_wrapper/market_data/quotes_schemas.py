@@ -96,7 +96,7 @@ class QuoteEquity(BaseModel):
     bidTime: int  # last bid tim in milliseconds since Epoch
     closePrice: float  # Previous day's closing price
     highPrice: float  # Day's high trade price
-    lastMICId: str  # Last MIC code
+    lastMICId: Optional[str] = None  # Last MIC code
     lastPrice: float  # TODO documentation missing on site
     lastSize: int  # Number of sahres traded with last trade
     lowPrice: float  # Day's low trade price

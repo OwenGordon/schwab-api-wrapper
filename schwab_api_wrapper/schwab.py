@@ -72,10 +72,10 @@ class SchwabAPI:
             and datetime.now(timezone.utc) >= self.refresh_token_valid_until
         ):
             logging.getLogger(__name__).fatal(
-                "The API OAuth Refresh token has expired. Please renew this token by running `python3 -m schwab_api [parameters.json]`"
+                "The API OAuth Refresh token has expired. Please renew this token by running `python3 -m schwab_api_wrapper [parameters.json]`"
             )
             print(
-                "The API OAuth Refresh token has expired. Please renew this token by running `python3 -m schwab_api [parameters.json]`"
+                "The API OAuth Refresh token has expired. Please renew this token by running `python3 -m schwab_api_wrapper [parameters.json]`"
             )
             exit(1)
 
