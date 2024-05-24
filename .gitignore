@@ -4,3 +4,5 @@ dist
 main.py
 **/__pycache__/
 .DS_Store
+Makefile
+schwab_api_wrapper.egg-info/

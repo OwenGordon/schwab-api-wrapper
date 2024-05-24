@@ -86,11 +86,11 @@ class QuoteEquity(BaseModel):
     fiftyTwoWeekLow: float = Field(
         ..., alias="52WeekLow"
     )  # Lowest price traded in the past 12 months, or 52 weeks
-    askMICId: str  # ask MIC code
+    askMICId: Optional[str] = None  # ask MIC code
     askPrice: float  # Current Best Ask Price
     askSize: int  # Number of shares for ask
     askTime: int  # Last ask time in milliseconds since Epoch
-    bidMICId: str  # bid MIC code
+    bidMICId: Optional[str] = None  # bid MIC code
     bidPrice: float  # Current Best Bid Price
     bidSize: int  # Number of shares for bid
     bidTime: int  # last bid tim in milliseconds since Epoch
