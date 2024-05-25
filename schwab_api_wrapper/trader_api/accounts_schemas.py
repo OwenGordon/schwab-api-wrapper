@@ -192,7 +192,7 @@ class MarginInitialBalance(BaseModel):
     shortStockValue: float
     totalCash: float
     isInCall: float
-    unsettledCash: float
+    unsettledCash: Optional[float] = None
     pendingDeposits: float
     marginBalance: float
     shortBalance: float
@@ -200,12 +200,24 @@ class MarginInitialBalance(BaseModel):
 
 
 class MarginBalance(BaseModel):
+    accruedInterest: float
+    cashBalance: float
+    cashReceipts: float
+    longOptionMarketValue: float
+    liquidationValue: float
+    longMarketValue: float
+    moneyMarketFund: float
+    savings: float
+    shortMarketValue: float
+    pendingDeposits: float
+    mutualFundValue: float
+    bondValue: float
+    shortOptionMarketValue: float
     availableFunds: float
     availableFundsNonMarginableTrade: float
     buyingPower: float
     buyingPowerNonMarginableTrade: float
     dayTradingBuyingPower: float
-    dayTradingBuyingPowerCall: float
     equity: float
     equityPercentage: float
     longMarginValue: float
@@ -216,9 +228,18 @@ class MarginBalance(BaseModel):
     shortBalance: float
     shortMarginValue: float
     sma: float
+
+
+class MarginProjectedBalance(BaseModel):
+    availableFunds: float
+    availableFundsNonMarginableTrade: float
+    buyingPower: float
+    dayTradingBuyingPower: float
+    dayTradingBuyingPowerCall: float
+    maintenanceCall: float
+    regTCall: float
     isInCall: float
     stockBuyingPower: float
-    optionBuyingPower: float
 
 
 class CashInitialBalance(BaseModel):
@@ -283,7 +304,7 @@ class BaseAccount(BaseModel):
 class MarginAccount(BaseAccount):
     initialBalances: MarginInitialBalance
     currentBalances: MarginBalance
-    projectedBalances: MarginBalance
+    projectedBalances: MarginProjectedBalance
 
 
 class CashAccount(BaseAccount):
