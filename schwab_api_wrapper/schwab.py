@@ -896,7 +896,6 @@ class SchwabAPI:
         params = {
             "startDate": start_date.isoformat(),
             "endDate": end_date.isoformat(),
-            "symbol": quote(symbol),
             "types": ",".join(
                 map(
                     lambda t_type: t_type.value, 
@@ -904,6 +903,9 @@ class SchwabAPI:
                 )
             ) if isinstance(transaction_type, Iterable) else transaction_type.value,
         }
+        
+        if symbol:
+            params["symbol"] = quote(symbol)
 
         logging.getLogger(__name__).debug(
             "Get Transactions Params:\n" + pformat(params)
