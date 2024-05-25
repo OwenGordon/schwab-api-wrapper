@@ -1188,6 +1188,33 @@ class TestSchwabAPI(unittest.TestCase):
         self.assertIsNone(error)
 
     @responses.activate
+    def test_get_transactions_multiple_types_success(self):
+        responses.add(
+            responses.GET,
+            f"{TRADER_API_ENDPOINT}/accounts/{self.encrypted_account_number}/transactions",
+            json=json.load(
+                open(
+                    Path(os.path.dirname(__file__))
+                    / "sample_responses"
+                    / "multi_type_transactions.json",
+                    "r",
+                )
+            ),
+            status=200,
+        )
+
+        result, error = self.api.get_transactions(
+            self.encrypted_account_number,
+            datetime(2024, 3, 1),
+            datetime(2024, 4, 15),
+            [TransactionType.TRADE, TransactionType.CASH_RECEIPT],
+            symbol="GM",
+        )
+
+        self.assertIsInstance(result, TransactionResponse)
+        self.assertIsNone(error)
+
+    @responses.activate
     def test_get_transactions_bad_request(self):
         responses.add(
             responses.GET,

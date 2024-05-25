@@ -6,6 +6,7 @@ from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
 from datetime import datetime, timedelta, timezone, date
 from typing import Optional, Union, List
+from collections.abc import Iterable
 import logging
 from devtools import pprint, pformat
 from urllib.parse import quote
@@ -870,7 +871,7 @@ class SchwabAPI:
         encrypted_account_number: str,
         start_date: datetime,
         end_date: datetime,
-        transaction_type: TransactionType,
+        transaction_type: Union[TransactionType, Iterable[TransactionType]],
         symbol: Optional[str] = None,
     ) -> tuple[Optional[TransactionResponse], Optional[AccountsAndTradingError]]:
         """
@@ -896,7 +897,12 @@ class SchwabAPI:
             "startDate": start_date.isoformat(),
             "endDate": end_date.isoformat(),
             "symbol": quote(symbol),
-            "types": transaction_type.value,
+            "types": ",".join(
+                map(
+                    lambda t_type: t_type.value, 
+                    transaction_type
+                )
+            ) if isinstance(transaction_type, Iterable) else transaction_type.value,
         }
 
         logging.getLogger(__name__).debug(

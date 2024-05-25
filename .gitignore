@@ -6,3 +6,4 @@ main.py
 .DS_Store
 Makefile
 schwab_api_wrapper.egg-info/
+tests/sample_responses/

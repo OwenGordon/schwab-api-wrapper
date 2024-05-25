@@ -225,8 +225,8 @@ class Transaction(BaseModel):
     subAccount: SubAccount
     tradeDate: datetime
     settlementDate: Optional[datetime] = None
-    positionId: int
-    orderId: int
+    positionId: Optional[int] = None
+    orderId: Optional[int] = None
     netAmount: float
     activityType: Optional[ActivityType] = None
     transferItems: List[TransferItem]
