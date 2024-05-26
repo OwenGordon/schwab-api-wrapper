@@ -134,6 +134,9 @@ class SchwabAPI:
             "accept": "application/json",
             "Authorization": f"Bearer {self.access_token}",
         }
+    
+    def get_refresh_token_expiration(self) -> datetime:
+        return self.refresh_token_valid_until
 
     def refresh(self):
         token = self.refresh_access_token()
