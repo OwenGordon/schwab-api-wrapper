@@ -36,11 +36,11 @@ from .oauth_schemas import Token, OAuthError
 
 
 class OAuthException(Exception):
-    def __init__(self, title, error: OAuthError):
+    def __init__(self, title, error: OAuthError, parameters: dict):
         super().__init__(title)
         self.title = title
         self.error = error
-
+        self.parameters = parameters
 
 
 # TODO if the response doesn't have a .json() field it will error at us
@@ -152,7 +152,7 @@ class SchwabAPI:
         token, error = self.refresh_access_token()
 
         if error is not None:
-            raise OAuthException(f"Unable to generate refresh token", error)
+            raise OAuthException(f"Unable to generate refresh token", error, self.parameters)
         
         self.save_token(token)
 
@@ -253,7 +253,7 @@ class SchwabAPI:
         token, error = self.generate_refresh_token(authorization_code)
 
         if error is not None:
-            raise OAuthException(f"Unable to generate refresh token", error)
+            raise OAuthException(f"Unable to generate refresh token", error, self.parameters)
         
         self.save_token(token)
 
