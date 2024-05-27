@@ -25,7 +25,7 @@ from schwab_api_wrapper.market_data.errors_schema import MarketDataError
 from schwab_api_wrapper.market_data.market_hours_schemas import MarketHoursResponse
 from schwab_api_wrapper.market_data.price_history_schemas import CandleList
 
-from schwab_api_wrapper.schwab import SchwabAPI
+from schwab_api_wrapper.schwab import SchwabAPI, OAuthException
 
 logging.basicConfig(level=logging.INFO)
 
@@ -69,6 +69,8 @@ class TestSchwabAPI(unittest.TestCase):
                 KEY_TTL: 1800,
                 KEY_TOKEN_REFRESH: "new_refresh_token",
                 KEY_TOKEN_ID: "new_id_token",
+                "scope": "api",
+                "token_type": "Bearer"
             },
             status=200,
         )
@@ -84,6 +86,27 @@ class TestSchwabAPI(unittest.TestCase):
             self.api.access_token_valid_until,
             datetime.now(timezone.utc) + timedelta(minutes=30),
         )
+
+    @patch("builtins.open", new_callable=mock_open, read_data=json.dumps(fake_json))
+    @responses.activate
+    def test_refresh_token_failure(self, mock_file):
+        # Mock the HTTP POST response for a successful token refresh
+        # Set up the mock response
+        responses.add(
+            responses.POST,
+            TOKEN_URL,
+            json={
+                'error': 'unsupported_token_type',
+                'error_description': (
+                    '400 Bad Request: "{"error_description":"Exception while authenticating refresh token [tokenDigest=******, Exception=Failed refresh token authentication [tokenDigest=******]]","error":"refresh_token_authentication_error"}"'
+                )
+            },
+            status=400,
+        )
+
+        with self.assertRaises(OAuthException):
+            # Call the method under test
+            self.api.refresh()
 
     @responses.activate
     def test_account_numbers_success(self):

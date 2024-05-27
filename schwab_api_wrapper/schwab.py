@@ -32,6 +32,16 @@ from .trader_api.transactions_schemas import (
 from .trader_api.orders_schemas import Order, OrderRequest, PreviewOrder, OrderResponse
 from .trader_api.errors_schema import AccountsAndTradingError
 
+from .oauth_schemas import Token, OAuthError
+
+
+class OAuthException(Exception):
+    def __init__(self, title, error: OAuthError):
+        super().__init__(title)
+        self.title = title
+        self.error = error
+
+
 
 # TODO if the response doesn't have a .json() field it will error at us
 # I think we just let it fail in this case because pydantic verification will fail anyways too
@@ -139,7 +149,11 @@ class SchwabAPI:
         return self.refresh_token_valid_until
 
     def refresh(self):
-        token = self.refresh_access_token()
+        token, error = self.refresh_access_token()
+
+        if error is not None:
+            raise OAuthException(f"Unable to generate refresh token", error)
+        
         self.save_token(token)
 
         self.retry_session = requests.Session()
@@ -179,7 +193,7 @@ class SchwabAPI:
 
         return response.url
 
-    def generate_refresh_token(self, authorization_code) -> dict:
+    def generate_refresh_token(self, authorization_code) -> tuple[Optional[Token], Optional[OAuthError]]:
         # Access Token" - Request Example (CURL)
         # {curl -X POST \https://api.schwabapi.com/v1/oauth/token \-H 'Authorization: Basic {BASE64_ENCODED_Client_ID:Client_Secret} \-H 'Content-Type: application/x-www-form-urlencoded' \-d 'grant_type=authorization_code&code={AUTHORIZATION_CODE_VALUE}&redirect_uri=https://example_url.com/callback_example'}
         # Response Example (body)
@@ -206,16 +220,19 @@ class SchwabAPI:
             f"Schwab API | POST `{TOKEN_URL}` | Status: {response.status_code}"
         )
 
-        assert (
-            response.status_code == STATUS_CODE_OK
-        ), "Failed to obtain tokens [error code = %s]" % (response.status_code)
+        if response.status_code == STATUS_CODE_OK:
+            token = Token(**response.json())
+            logging.getLogger(__name__).debug("Response JSON:\n" + pformat(token))
 
-        logging.getLogger(__name__).debug("Response JSON:\n" + pformat(response.json()))
+            print("New Token:")
+            pprint(token)
 
-        print("New Token:")
-        pprint(response.json())
+            return token, None
+        else:
+            error = OAuthError(**response.json())
+            logging.getLogger(__name__).debug("Response JSON:\n" + pformat(error))
 
-        return response.json()
+            return None, error
 
     def renew_refresh_token(self):
 
@@ -233,19 +250,23 @@ class SchwabAPI:
 
         authorization_code, session_id = get_code_from_url(url)
 
-        token = self.generate_refresh_token(authorization_code)
+        token, error = self.generate_refresh_token(authorization_code)
+
+        if error is not None:
+            raise OAuthException(f"Unable to generate refresh token", error)
+        
         self.save_token(token)
 
-    def save_token(self, token: dict):
-        self.refresh_token = token[KEY_TOKEN_REFRESH]  # valid for 7 days
+    def save_token(self, token: Token):
+        self.refresh_token = token.refresh_token # valid for 7 days
         self.refresh_token_valid_until = datetime.now(timezone.utc) + timedelta(
             days=7
         )  # utc time refresh token is valid until
-        self.access_token = token[KEY_TOKEN_ACCESS]  # valid for 30 minutes
+        self.access_token = token.access_token  # valid for 30 minutes
         self.access_token_valid_until = datetime.now(timezone.utc) + timedelta(
             seconds=1800
         )  # utc time when access token is invalid
-        self.id_token = token[KEY_TOKEN_ID]
+        self.id_token = token.id_token
 
         self.parameters[KEY_ACCESS_TOKEN_VALID_UNTIL] = (
             self.access_token_valid_until.isoformat()
@@ -254,12 +275,12 @@ class SchwabAPI:
             self.refresh_token_valid_until.isoformat()
         )
 
-        self.parameters.update(token)
+        self.parameters.update(token.model_dump())
 
         with open(self.parameters_file, "w") as fin:
             json.dump(self.parameters, fin, indent=4)
 
-    def refresh_access_token(self) -> dict:
+    def refresh_access_token(self) -> tuple[Optional[Token], Optional[OAuthError]]:
         # "Refresh Token" - Request Example (cURL)
         # curl -X POST \
         #     https://api.schwabapi.com/v1/oauth/token \
@@ -289,13 +310,19 @@ class SchwabAPI:
             f"Schwab API | POST `{TOKEN_URL}` | Status: {response.status_code}"
         )
 
-        logging.getLogger(__name__).debug("Response JSON:\n" + pformat(response.json()))
+        if response.status_code == STATUS_CODE_OK:
+            token = Token(**response.json())
+            logging.getLogger(__name__).debug("Response JSON:\n" + pformat(token))
 
-        assert (
-            response.status_code == STATUS_CODE_OK
-        ), "Failed to obtain tokens [error code = %s]" % (response.status_code)
+            print("New Token:")
+            pprint(token)
 
-        return response.json()
+            return token, None
+        else:
+            error = OAuthError(**response.json())
+            logging.getLogger(__name__).debug("Response JSON:\n" + pformat(error))
+
+            return None, error
 
     def quotes(
         self,
