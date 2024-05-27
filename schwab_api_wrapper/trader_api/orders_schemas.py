@@ -237,6 +237,7 @@ class ActivityType(Enum):
 
 class ExecutionType(Enum):
     FILL = "FILL"
+    CANCELED = "CANCELED"
 
 
 class ExecutionLeg(BaseModel):
