@@ -65,7 +65,7 @@ class UserDetails(BaseModel):
     brokerRepCode: str
 
 
-class AssetType(Enum):
+class AssetType(str, Enum):
     EQUITY = "EQUITY"
     OPTION = "OPTION"
     INDEX = "INDEX"
@@ -74,6 +74,9 @@ class AssetType(Enum):
     FIXED_INCOME = "FIXED_INCOME"
     CURRENCY = "CURRENCY"
     COLLECTIVE_INVESTMENT = "COLLECTIVE_INVESTMENT"
+    PRODUCT = "PRODUCT"
+    FUTURE = "FUTURE"
+    FOREX = "FOREX"
 
 
 class CashEquivalentType(Enum):
@@ -93,8 +96,22 @@ class TransactionCashEquivalent(BaseModel):
     type: CashEquivalentType
 
 
+class CollectiveInvestmentType(Enum):
+    UNIT_INVESTMENT_TRUST = "UNIT_INVESTMENT_TRUST"
+    EXCHANGE_TRADED_FUND = "EXCHANGE_TRADED_FUND"
+    CLOSED_END_FUND = "CLOSED_END_FUND"
+    INDEX = "INDEX"
+    UNITS = "UNITS"
+
+
 class CollectiveInvestment(BaseModel):
-    pass
+    assetType: Literal[AssetType.COLLECTIVE_INVESTMENT]
+    cusip: str
+    symbol: str
+    description: str
+    instrumentId: int
+    netChange: float
+    type: CollectiveInvestmentType
 
 
 class Currency(BaseModel):
@@ -103,8 +120,8 @@ class Currency(BaseModel):
     cusip: Optional[str] = None
     symbol: str
     description: str
-    instrumentid: int
-    netChange: Optional[float]
+    instrumentId: int
+    netChange: Optional[float] = None
     closingPrice: float
 
 
@@ -127,7 +144,7 @@ class EquityType(Enum):
 class TransactionEquity(BaseModel):
     assetType: Literal[AssetType.EQUITY]
     status: str
-    cusip: str
+    cusip: Optional[str] = None
     symbol: str
     description: Optional[str] = None
     instrumentId: int
@@ -137,31 +154,31 @@ class TransactionEquity(BaseModel):
 
 
 class TransactionFixedIncome(BaseModel):
-    pass
+    assetType: Literal[AssetType.FIXED_INCOME]
 
 
 class Forex(BaseModel):
-    pass
+    assetType: Literal[AssetType.FOREX]
 
 
 class Future(BaseModel):
-    pass
+    assetType: Literal[AssetType.FUTURE]
 
 
 class Index(BaseModel):
-    pass
+    assetType: Literal[AssetType.INDEX]
 
 
 class TransactionMutualFund(BaseModel):
-    pass
+    assetType: Literal[AssetType.MUTUAL_FUND]
 
 
 class TransactionOption(BaseModel):
-    pass
+    assetType: Literal[AssetType.OPTION]
 
 
 class Product(BaseModel):
-    pass
+    assetType: Literal[AssetType.PRODUCT]
 
 
 TransactionInstrument = Union[
