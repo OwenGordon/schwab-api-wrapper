@@ -210,6 +210,9 @@ class SchwabAPI:
             "Generate Refresh Token Payload:\n" + pformat(payload)
         )
 
+        return self.__get_token(payload)
+
+    def __get_token(self, payload) -> tuple[Optional[Token], Optional[OAuthError]]:
         response = requests.post(
             TOKEN_URL,
             auth=HTTPBasicAuth(username=self.client_id, password=self.client_secret),
@@ -223,9 +226,6 @@ class SchwabAPI:
         if response.status_code == STATUS_CODE_OK:
             token = Token(**response.json())
             logging.getLogger(__name__).debug("Response JSON:\n" + pformat(token))
-
-            print("New Token:")
-            pprint(token)
 
             return token, None
         else:
@@ -300,29 +300,7 @@ class SchwabAPI:
             "Refresh Access Token Payload:\n" + pformat(payload)
         )
 
-        response = requests.post(
-            TOKEN_URL,
-            auth=HTTPBasicAuth(username=self.client_id, password=self.client_secret),
-            data=payload,
-        )
-
-        logging.getLogger(__name__).info(
-            f"Schwab API | POST `{TOKEN_URL}` | Status: {response.status_code}"
-        )
-
-        if response.status_code == STATUS_CODE_OK:
-            token = Token(**response.json())
-            logging.getLogger(__name__).debug("Response JSON:\n" + pformat(token))
-
-            print("New Token:")
-            pprint(token)
-
-            return token, None
-        else:
-            error = OAuthError(**response.json())
-            logging.getLogger(__name__).debug("Response JSON:\n" + pformat(error))
-
-            return None, error
+        return self.__get_token(payload)
 
     def quotes(
         self,
