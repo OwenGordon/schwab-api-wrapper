@@ -114,3 +114,87 @@ class InstrumentResponse(BaseModel):
 
 class InstrumentsRoot(BaseModel):
     instruments: list[InstrumentResponse]
+
+
+
+
+def default_instrument_response(symbol) -> InstrumentResponse:
+    instrument = {
+        "cusip": None,
+        "symbol": symbol,
+        "description": None,
+        "exchange": "",
+        "assetType": AssetType.UNKNOWN,
+        "bondFactor": None,
+        "bondMultiplier": None,
+        "bondPrice": None,
+        "fundamental": {
+            "symbol": "",
+            "low52": 0,
+            "dividendAmount": 0,
+            "dividendYield": 0,
+            "dividendDate": None,
+            "peRatio": 0,
+            "pegRatio": 0,
+            "pbRatio": 0,
+            "prRatio": 0,
+            "pcfRatio": 0,
+            "grossMarginTTM": 0,
+            "grossMarginMRQ": 0,
+            "netProfitMarginTTM": 0,
+            "netProfitMarginMRQ": 0,
+            "operatingMarginTTM": 0,
+            "operatingMarginMRQ": 0,
+            "returnOnEquity": 0,
+            "returnOnAssets": 0,
+            "returnOnInvestment": 0,
+            "quickRatio": 0,
+            "currentRatio": 0,
+            "interestCoverage": 0,
+            "totalDebtToCapital": 0,
+            "ltDebtToEquity": 0,
+            "totalDebtToEquity": 0,
+            "epsTTM": 0,
+            "epsChangePercentTTM": 0,
+            "epsChangeYear": 0,
+            "epsChange": 0,
+            "revChangeYear": 0,
+            "revChangeTTM": 0,
+            "revChangeIn": 0,
+            "sharesOutstanding": 0,
+            "marketCapFloat": 0,
+            "marketCap": 0,
+            "bookValuePerShare": 0,
+            "shortIntToFloat": 0,
+            "shortIntDayToCover": 0,
+            "divGrowthRate3Year": 0,
+            "dividendPayAmount": 0,
+            "dividendPayDate": None,
+            "beta": 0,
+            "vol1DayAvg": 0,
+            "vol10DayAvg": 0,
+            "vol3MonthAvg": 0,
+            "avg10DaysVolume": 0,
+            "avg1DayVolume": 0,
+            "avg3MonthVolume": 0,
+            "declarationDate": None,
+            "dividendFreq": 0,
+            "eps": 0,
+            "corpactionDate": None,
+            "dtnVolume": 0,
+            "nextDividendPayDate": None,
+            "nextDividendDate": None,
+            "fundLeverageFactor": 0,
+            "fundStrategy": None
+        },
+        "instrumentInfo": {
+            "cusip": "",
+            "symbol": symbol,
+            "description": "",
+            "exchange": "",
+            "assetType": AssetType.UNKNOWN,
+        },
+        "bondInstrumentInfo": None
+    }
+
+    return InstrumentResponse(**instrument)

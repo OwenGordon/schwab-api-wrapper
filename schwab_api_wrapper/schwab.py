@@ -18,7 +18,7 @@ from .market_data.quotes_schemas import QuoteResponse
 from .market_data.market_hours_schemas import MarketHoursResponse
 from .market_data.price_history_schemas import CandleList
 from .market_data.errors_schema import MarketDataError
-from .market_data.instruments_schemas import InstrumentsRoot
+from .market_data.instruments_schemas import InstrumentsRoot, default_instrument_response
 
 from .trader_api.accounts_schemas import (
     AccountNumbersResponse,
@@ -376,7 +376,12 @@ class SchwabAPI:
         logging.getLogger(__name__).debug("Response JSON:\n" + pformat(response.json()))
 
         if response.status_code == STATUS_CODE_OK:
-            return InstrumentsRoot(**response.json()), None
+            data = response.json()
+            if len(data) == 1:
+                return InstrumentsRoot(**response.json()), None
+            else:
+                instruments = [default_instrument_response(symbol) for symbol in symbols]
+                return InstrumentsRoot(instruments=instruments), None
         else:
             return None, MarketDataError(**response.json())
 
