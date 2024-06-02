@@ -99,7 +99,7 @@ class Bond(BaseModel):
 
 
 class InstrumentResponse(BaseModel):
-    cusip: str
+    cusip: str | None = None
     symbol: str
     description: str | None = None
     exchange: str
