@@ -101,7 +101,7 @@ class Bond(BaseModel):
 class InstrumentResponse(BaseModel):
     cusip: str
     symbol: str
-    description: str
+    description: str | None = None
     exchange: str
     assetType: AssetType
     bondFactor: str | None = None
