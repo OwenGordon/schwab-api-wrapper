@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from datetime import datetime
 from enum import Enum
 
 
@@ -23,7 +24,7 @@ class FundamentalInst(BaseModel):
     low52: float
     dividendAmount: float
     dividendYield: float
-    dividendDate: str
+    dividendDate: datetime | None = None
     peRatio: float
     pegRatio: float
     pbRatio: float
@@ -59,7 +60,7 @@ class FundamentalInst(BaseModel):
     shortIntDayToCover: float
     divGrowthRate3Year: float
     dividendPayAmount: float
-    dividendPayDate: str
+    dividendPayDate: datetime | None = None
     beta: float
     vol1DayAvg: float
     vol10DayAvg: float
@@ -67,13 +68,13 @@ class FundamentalInst(BaseModel):
     avg10DaysVolume: int
     avg1DayVolume: int
     avg3MonthVolume: int
-    declarationDate: str
+    declarationDate: datetime | None = None
     dividendFreq: int
     eps: float
     corpactionDate: str | None = None
     dtnVolume: int
-    nextDividendPayDate: str
-    nextDividendDate: str
+    nextDividendPayDate: datetime | None = None
+    nextDividendDate: datetime | None = None
     fundLeverageFactor: float
     fundStrategy: str | None = None
 
