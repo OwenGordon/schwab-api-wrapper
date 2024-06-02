@@ -246,7 +246,7 @@ class EquityResponse(BaseModel):
     """
 
     assetMainType: Literal[AssetMainType.EQUITY]  # instrument's asset type
-    ssid: int  # SSID of instrument
+    ssid: Optional[int] = None  # SSID of instrument
     symbol: str  # Symbol of instrument
     realtime: Optional[bool] = None  # is quote realtime
     assetSubType: Optional[AssetSubType] = (
