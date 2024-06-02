@@ -22,6 +22,7 @@ class ExtendedMarket(BaseModel):
 
 
 class DivFreqOption(Enum):
+    ZERO = 0
     ONE = 1
     TWO = 2
     THREE = 3
@@ -48,9 +49,9 @@ class Fundamental(BaseModel):
     avg1YearVolume: (
         float  # Average 1 day volume  TODO this documentation must be incorrect
     )
-    declarationDate: datetime  # Declaration date in yyyy-mm-ddThh:mm:ssZ
+    declarationDate: datetime | None = None  # Declaration date in yyyy-mm-ddThh:mm:ssZ
     divAmount: float  # Dividend Amount
-    divExDate: str  # Dividend date in yyyy-mm-ddThh:mm:ssZ
+    divExDate: datetime | None = None  # Dividend date in yyyy-mm-ddThh:mm:ssZ
     # 1 - once a year or annually
     # 2 - 2x a year of semi-annualy
     # 3 - 3x a year
@@ -59,12 +60,12 @@ class Fundamental(BaseModel):
     # 11 - 11x a year
     # 12 - 12x a year or monthly
     divPayAmount: float  # Dividend Pay Amount
-    divPayDate: str  # Dividend pay date in yyyy-mm-ddThh:mm:ssZ
+    divPayDate: datetime | None = None  # Dividend pay date in yyyy-mm-ddThh:mm:ssZ
     divYield: float  # Dividend yield
     eps: float  # Earnings per Share
     fundLeverageFactor: float  # Fund Leverage Factor + > 0 <-
-    nextDivExDate: str  # Next Dividend date in yyyy-MM-ddThh:mm:ssZ
-    nextDivPayDate: str  # Next Dividend pay date in yyyy-MM-ddThh:mm:ssZ
+    nextDivExDate: datetime | None = None # Next Dividend date in yyyy-MM-ddThh:mm:ssZ
+    nextDivPayDate: datetime | None = None  # Next Dividend pay date in yyyy-MM-ddThh:mm:ssZ
     peRatio: float  # P/E Ratio
     divFreq: Optional[DivFreqOption] = None  # Dividend frequency
     fundStrategy: Optional[FundStrategyOption] = None  # FundStrategy
