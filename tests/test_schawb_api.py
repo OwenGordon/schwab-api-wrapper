@@ -24,6 +24,7 @@ from schwab_api_wrapper.market_data.quotes_schemas import QuoteResponse
 from schwab_api_wrapper.market_data.errors_schema import MarketDataError
 from schwab_api_wrapper.market_data.market_hours_schemas import MarketHoursResponse
 from schwab_api_wrapper.market_data.price_history_schemas import CandleList
+from schwab_api_wrapper.market_data.instruments_schemas import InstrumentsRoot
 
 from schwab_api_wrapper.schwab import SchwabAPI, OAuthException
 
@@ -1364,6 +1365,119 @@ class TestSchwabAPI(unittest.TestCase):
         self.assertIsNone(result)
         self.assertIsInstance(error, AccountsAndTradingError)
         self.assertEqual(error.message, "Transaction not found")
+
+    @responses.activate
+    def test_instruments_symbol_search(self):
+        responses.add(
+            responses.GET,
+            INSTRUMENTS_URL,
+            json={
+                'instruments': [
+                    {
+                        'cusip': '037833100',
+                        'symbol': 'AAPL',
+                        'description': 'Apple Inc',
+                        'exchange': 'NASDAQ',
+                        'assetType': 'EQUITY',
+                    },
+                    {
+                        'cusip': '00206R102',
+                        'symbol': 'T',
+                        'description': 'A T & T Inc',
+                        'exchange': 'NYSE',
+                        'assetType': 'EQUITY',
+                    },
+                ],
+            },
+            status=200
+        )
+
+        result, error = self.api.instruments(["AAPL", "T"], Projection.SYMBOL_SEARCH)
+
+        self.assertIsInstance(result, InstrumentsRoot)
+        self.assertIsNone(error)
+
+    @responses.activate
+    def test_instruments_fundamentals(self):
+        responses.add(
+            responses.GET,
+            INSTRUMENTS_URL,
+            json=json.load(
+                open(
+                    Path(os.path.dirname(__file__))
+                    / "sample_responses"
+                    / "instruments_fundamentals.json",
+                    "r",
+                )
+            ),
+            status=200,
+        )
+
+        result, error = self.api.instruments(["AAPL", "T"], Projection.FUNDAMENTAL)
+
+        self.assertIsInstance(result, InstrumentsRoot)
+        self.assertIsNone(error)
+
+    @responses.activate
+    def test_instruments_bad_projection(self):
+        responses.add(
+            responses.GET,
+            INSTRUMENTS_URL,
+            json={
+                'errors': [
+                    {
+                        'id': 'cd214562-7489-4c98-af64-e3db04037f09',
+                        'status': '400',
+                        'title': 'Bad Request',
+                        'detail': (
+                            'Projection has to be one of following: symbol-search,symbol-regex,desc-search,desc-regex,search,funda'
+                            'mental'
+                        ),
+                        'source': {
+                            'parameter': 'projection',
+                        },
+                    },
+                ],
+            },
+            status=400
+        )
+
+        result, error = self.api.instruments(["AAPL", "T"], Projection.SYMBOL_SEARCH)
+
+        self.assertIsNone(result)
+        self.assertIsInstance(error, MarketDataError)
+        self.assertEqual(error.errors[0].detail, 'Projection has to be one of following: symbol-search,symbol-regex,desc-search,desc-regex,search,fundamental')
+        self.assertEqual(error.errors[0].source.parameter, 'projection')
+
+
+    @responses.activate
+    def test_instruments_bad_symbol(self):
+        responses.add(
+            responses.GET,
+            INSTRUMENTS_URL,
+            json={
+                'errors': [
+                    {
+                        'id': '4c8591c4-0946-4424-9648-fe7b6e026906',
+                        'status': '400',
+                        'title': 'Bad Request',
+                        'detail': 'Symbol cannot be null or empty.',
+                        'source': {
+                            'parameter': 'symbol',
+                        },
+                    },
+                ],
+            },
+            status=400
+        )
+
+        result, error = self.api.instruments(["AAPL", "T"], Projection.SYMBOL_SEARCH)
+
+        self.assertIsNone(result)
+        self.assertIsInstance(error, MarketDataError)
+        self.assertEqual(error.errors[0].detail, 'Symbol cannot be null or empty.')
+        self.assertEqual(error.errors[0].source.parameter, 'symbol')
+
 
 
 if __name__ == "__main__":

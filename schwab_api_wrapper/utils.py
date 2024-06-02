@@ -35,6 +35,7 @@ TOKEN_URL = f"{BASE_URL}/v1/oauth/token"
 QUOTES_URL = f"{MARKET_DATA_ENDPOINT}/quotes"
 MARKET_HOURS_URL = f"{MARKET_DATA_ENDPOINT}/markets"
 PRICE_HISTORY_URL = f"{MARKET_DATA_ENDPOINT}/pricehistory"
+INSTRUMENTS_URL = f"{MARKET_DATA_ENDPOINT}/instruments"
 
 ACCOUNT_NUMBERS_URL = f"{TRADER_API_ENDPOINT}/accounts/accountNumbers"
 ACCOUNTS_URL = f"{TRADER_API_ENDPOINT}/accounts"
@@ -59,6 +60,15 @@ class QuotesField(Enum):
     EXTENDED = "extended"
     REFERENCE = "reference"
     REGULAR = "regular"
+
+
+class Projection(Enum):
+    SYMBOL_SEARCH = "symbol-search"
+    SYMBOL_REGEX = "symbol-regex"
+    DESC_SEARCH = "desc-search"
+    DESC_REGEX = "desc-regex"
+    SEARCH = "search"
+    FUNDAMENTAL = "fundamental"
 
 
 class MarketID(Enum):

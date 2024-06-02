@@ -18,6 +18,7 @@ from .market_data.quotes_schemas import QuoteResponse
 from .market_data.market_hours_schemas import MarketHoursResponse
 from .market_data.price_history_schemas import CandleList
 from .market_data.errors_schema import MarketDataError
+from .market_data.instruments_schemas import InstrumentsRoot
 
 from .trader_api.accounts_schemas import (
     AccountNumbersResponse,
@@ -342,6 +343,43 @@ class SchwabAPI:
             return QuoteResponse(**response.json()), None
         else:
             return None, MarketDataError(**response.json())
+        
+    def instruments(
+        self,
+        symbols: list[str],
+        projection: Projection,
+        retry: bool = False
+    ) -> tuple[Optional[InstrumentsRoot], Optional[MarketDataError]]:
+        """
+        Get Instruments details by using different projections. Get more specific fundamental instrument data by using fundamental as the projection.
+
+        Parameters:
+            symbol: symbol of a security
+            projection: search by available values : symbol-search, symbol-regex, desc-search, desc-regex, search, fundamental
+        """
+
+        params = {
+            "symbol": ",".join(symbols),
+            "projection": projection.value
+        }
+
+        logging.getLogger(__name__).debug("Instruments Params:\n" + pformat(params))
+
+        response = self.__get(
+            INSTRUMENTS_URL, params=params, headers=self.headers, retry=retry
+        )
+
+        logging.getLogger(__name__).info(
+            f"Schwab API | GET `{INSTRUMENTS_URL}` | Status: {response.status_code}"
+        )
+
+        logging.getLogger(__name__).debug("Response JSON:\n" + pformat(response.json()))
+
+        if response.status_code == STATUS_CODE_OK:
+            return InstrumentsRoot(**response.json()), None
+        else:
+            return None, MarketDataError(**response.json())
+
 
     def market_hours(
         self,
