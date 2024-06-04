@@ -149,7 +149,7 @@ class TransactionEquity(BaseModel):
     description: Optional[str] = None
     instrumentId: int
     netChange: Optional[float] = None
-    closingPrice: float
+    closingPrice: Optional[float] = None
     type: EquityType
 
 
