@@ -4,12 +4,13 @@ import requests
 from requests import Response
 from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
-from datetime import datetime, timedelta, timezone, date
+from datetime import datetime, timedelta, date
 from typing import Optional, Union, List
 from collections.abc import Iterable
 import logging
 from devtools import pprint, pformat
 from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
 from .response_aware_retry import ResponseAwareRetry
 from .utils import *
@@ -81,7 +82,7 @@ class SchwabAPI:
 
         if (
             not renew_refresh_token
-            and datetime.now(timezone.utc) >= self.refresh_token_valid_until
+            and datetime.now(ZoneInfo('America/New_York')) >= self.refresh_token_valid_until
         ):
             logging.getLogger(__name__).fatal(
                 "The API OAuth Refresh token has expired. Please renew this token by running `python3 -m schwab_api_wrapper [parameters.json]`"
@@ -131,7 +132,7 @@ class SchwabAPI:
 
     @property
     def need_refresh(self) -> bool:
-        return datetime.now(timezone.utc) >= self.access_token_valid_until
+        return datetime.now(ZoneInfo('America/New_York')) >= self.access_token_valid_until
 
     @property
     def headers(self):
@@ -260,11 +261,11 @@ class SchwabAPI:
 
     def save_token(self, token: Token):
         self.refresh_token = token.refresh_token # valid for 7 days
-        self.refresh_token_valid_until = datetime.now(timezone.utc) + timedelta(
+        self.refresh_token_valid_until = datetime.now(ZoneInfo('America/New_York')) + timedelta(
             days=7
         )  # utc time refresh token is valid until
         self.access_token = token.access_token  # valid for 30 minutes
-        self.access_token_valid_until = datetime.now(timezone.utc) + timedelta(
+        self.access_token_valid_until = datetime.now(ZoneInfo('America/New_York')) + timedelta(
             seconds=1800
         )  # utc time when access token is invalid
         self.id_token = token.id_token
@@ -403,9 +404,9 @@ class SchwabAPI:
         date_format = "%Y-%m-%d"
 
         if query_date is None:
-            query_date = datetime.now(timezone.utc).date()
+            query_date = datetime.now(ZoneInfo("America/New_York")).date()
 
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(ZoneInfo("America/New_York")).date()
         range_beginning = today
         range_ending = today + timedelta(days=365)
 
@@ -452,9 +453,9 @@ class SchwabAPI:
         date_format = "%Y-%m-%d"
 
         if query_date is None:
-            query_date = datetime.now(timezone.utc).date()
+            query_date = datetime.now(ZoneInfo('America/New_York')).date()
 
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(ZoneInfo('America/New_York')).date()
         range_beginning = today
         range_ending = today + timedelta(days=365)
 
@@ -664,13 +665,13 @@ class SchwabAPI:
             from_entered_time.tzinfo is None
             or from_entered_time.tzinfo.utcoffset(from_entered_time) is None
         ):
-            from_entered_time = from_entered_time.replace(tzinfo=timezone.utc)
+            from_entered_time = from_entered_time.replace(tzinfo=ZoneInfo('America/New_York'))
 
         if (
             to_entered_time.tzinfo is None
             or to_entered_time.tzinfo.utcoffset(to_entered_time) is None
         ):
-            to_entered_time = to_entered_time.replace(tzinfo=timezone.utc)
+            to_entered_time = to_entered_time.replace(tzinfo=ZoneInfo('America/New_York'))
 
         params = {
             "fromEnteredTime": from_entered_time.isoformat(),
@@ -718,13 +719,13 @@ class SchwabAPI:
             from_entered_time.tzinfo is None
             or from_entered_time.tzinfo.utcoffset(from_entered_time) is None
         ):
-            from_entered_time = from_entered_time.replace(tzinfo=timezone.utc)
+            from_entered_time = from_entered_time.replace(tzinfo=ZoneInfo('America/New_York'))
 
         if (
             to_entered_time.tzinfo is None
             or to_entered_time.tzinfo.utcoffset(to_entered_time) is None
         ):
-            to_entered_time = to_entered_time.replace(tzinfo=timezone.utc)
+            to_entered_time = to_entered_time.replace(tzinfo=ZoneInfo('America/New_York'))
 
         params = {
             "fromEnteredTime": from_entered_time.isoformat(),
@@ -939,10 +940,10 @@ class SchwabAPI:
         url = f"{TRADER_API_ENDPOINT}/accounts/{encrypted_account_number}/transactions"
 
         if start_date.tzinfo is None or start_date.tzinfo.utcoffset(start_date) is None:
-            start_date = start_date.replace(tzinfo=timezone.utc)
+            start_date = start_date.replace(tzinfo=ZoneInfo('America/New_York'))
 
         if end_date.tzinfo is None or end_date.tzinfo.utcoffset(end_date) is None:
-            end_date = end_date.replace(tzinfo=timezone.utc)
+            end_date = end_date.replace(tzinfo=ZoneInfo('America/New_York'))
 
         params = {
             "startDate": start_date.isoformat(),

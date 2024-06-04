@@ -7,6 +7,7 @@ from devtools import pprint
 import os
 from pathlib import Path
 import logging
+from zoneinfo import ZoneInfo
 
 from schwab_api_wrapper.utils import *
 
@@ -41,10 +42,10 @@ fake_json = {
     KEY_TOKEN_ACCESS: "your_access_token",
     KEY_TOKEN_ID: "your_id_token",
     KEY_ACCESS_TOKEN_VALID_UNTIL: (
-        datetime.now(timezone.utc) + timedelta(minutes=30)
+        datetime.now(ZoneInfo('America/New_York')) + timedelta(minutes=30)
     ).isoformat(),
     KEY_REFRESH_TOKEN_VALID_UNTIL: (
-        datetime.now(timezone.utc) + timedelta(days=7)
+        datetime.now(ZoneInfo('America/New_York')) + timedelta(days=7)
     ).isoformat(),
 }
 
@@ -85,7 +86,7 @@ class TestSchwabAPI(unittest.TestCase):
         self.assertEqual(self.api.id_token, "new_id_token")
         self.assertLess(
             self.api.access_token_valid_until,
-            datetime.now(timezone.utc) + timedelta(minutes=30),
+            datetime.now(ZoneInfo('America/New_York')) + timedelta(minutes=30),
         )
 
     @patch("builtins.open", new_callable=mock_open, read_data=json.dumps(fake_json))
