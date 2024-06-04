@@ -150,7 +150,7 @@ class TransactionEquity(BaseModel):
     instrumentId: int
     netChange: Optional[float] = None
     closingPrice: Optional[float] = None
-    type: EquityType
+    type: Optional[EquityType] = EquityType.UNKNOWN
 
 
 class TransactionFixedIncome(BaseModel):
