@@ -43,8 +43,8 @@ def main():
             "refresh_token": "",
             "access_token": "",
             "id_token": "",
-            "access_token_valid_until": "",
-            "refresh_token_valid_until": ""
+            "access_token_valid_until": '1970-01-01T00:00:00+00:00',
+            "refresh_token_valid_until": '1970-01-01T00:00:00+00:00'
         }
 
         with open(parameters_file_path, "w") as fin:

@@ -257,13 +257,14 @@ class SchwabAPI:
         if error is not None:
             raise OAuthException(f"Unable to generate refresh token", error, self.parameters)
         
-        self.save_token(token)
+        self.save_token(token, refresh_token_reset=True)
 
-    def save_token(self, token: Token):
+    def save_token(self, token: Token, refresh_token_reset: bool = False):
         self.refresh_token = token.refresh_token # valid for 7 days
-        self.refresh_token_valid_until = datetime.now(ZoneInfo('America/New_York')) + timedelta(
-            days=7
-        )  # utc time refresh token is valid until
+        if refresh_token_reset:
+            self.refresh_token_valid_until = datetime.now(ZoneInfo('America/New_York')) + timedelta(
+                days=7
+            )  # utc time refresh token is valid until
         self.access_token = token.access_token  # valid for 30 minutes
         self.access_token_valid_until = datetime.now(ZoneInfo('America/New_York')) + timedelta(
             seconds=1800
