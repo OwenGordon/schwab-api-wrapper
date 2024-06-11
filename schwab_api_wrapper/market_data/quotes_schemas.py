@@ -150,7 +150,7 @@ class QuoteMutualFund(BaseModel):
     closePrice: float  # Previous day's closing price
     nAV: float  # Net Asset Value
     netChange: float  # Current Last-Prev Close
-    netPercentChange: float  # Net Percentage Change
+    netPercentChange: Optional[float] = None  # Net Percentage Change
     securityStatus: str  # Status of security
     tradeTime: int  # Last trade time in milliseconds since Epoch
     totalVolume: Optional[int] = (
@@ -193,7 +193,7 @@ class ReferenceMutualFund(BaseModel):
     Reference data of MutualFund security
     """
 
-    cusip: str  # CUSIP of Instrument
+    cusip: Optional[str] = None  # CUSIP of Instrument
     description: str  # Description of Instrument
     exchange: str  # Exchange Code
     exchangeName: str  # Exchange Name
@@ -285,7 +285,7 @@ class MutualFundResponse(BaseModel):
     """
 
     assetMainType: Literal[AssetMainType.MUTUAL_FUND]  # instrument's asset type
-    ssid: int  # SSID of Instrument
+    ssid: Optional[int] = None  # SSID of Instrument
     symbol: str  # Symbol of instrument
     realtime: bool  # is quote realtime
     assetSubType: Optional[MutaulFundAssetSubTypeOption] = (
