@@ -14,7 +14,7 @@ from schwab_api_wrapper.utils import *
 from schwab_api_wrapper.trader_api.accounts_schemas import AccountNumbersResponse
 from schwab_api_wrapper.trader_api.errors_schema import AccountsAndTradingError
 from schwab_api_wrapper.trader_api.accounts_schemas import AccountsResponse, Account
-from schwab_api_wrapper.trader_api.orders_schemas import OrderResponse, Order, OrderRequest
+from schwab_api_wrapper.trader_api.orders_schemas import OrderResponse, Order, OrderRequest, PreviewOrder
 from schwab_api_wrapper.trader_api.transactions_schemas import (
     Transaction,
     TransactionResponse,
@@ -27,7 +27,9 @@ from schwab_api_wrapper.market_data.market_hours_schemas import MarketHoursRespo
 from schwab_api_wrapper.market_data.price_history_schemas import CandleList
 from schwab_api_wrapper.market_data.instruments_schemas import InstrumentsRoot
 
-from schwab_api_wrapper.schwab import SchwabAPI, OAuthException
+from schwab_api_wrapper.file_client import FileClient
+
+from schwab_api_wrapper.oauth_exception import OAuthException
 
 logging.basicConfig(level=logging.INFO)
 
@@ -52,8 +54,8 @@ fake_json = {
 
 class TestSchwabAPI(unittest.TestCase):
     @patch("builtins.open", new_callable=mock_open, read_data=json.dumps(fake_json))
-    def setUp(self, mock_file) -> None:  # mock_file is requred for the @patch wrapper
-        self.api = SchwabAPI(PARAMETERS_FILE_NAME, immediate_refresh=False)
+    def setUp(self, mock_file) -> None:  # mock_file is required for the @patch wrapper
+        self.api = FileClient(PARAMETERS_FILE_NAME, immediate_refresh=False)
         self.encrypted_account_number= "encrypted_account_number"
         self.order_id = 1324354657
         self.transaction_id = 20240424145200
@@ -1152,7 +1154,7 @@ class TestSchwabAPI(unittest.TestCase):
 
         result, error = self.api.preview_order(self.encrypted_account_number, order_request)
 
-        self.assertIsInstance(result, Order)
+        self.assertIsInstance(result, PreviewOrder)
         self.assertIsNone(error)
 
     @responses.activate
