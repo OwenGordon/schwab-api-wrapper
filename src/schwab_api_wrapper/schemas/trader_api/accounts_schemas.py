@@ -54,11 +54,12 @@ class AccountCashEquivalent(BaseModel):
 
 
 class AccountEquity(BaseModel):
-    assetType: Literal[AssetType.EQUITY]
+    assetType: Literal[AssetType.EQUITY] | Literal[AssetType.COLLECTIVE_INVESTMENT]
     cusip: Optional[str] = None
     symbol: str
     description: Optional[str] = None
     instrumentId: Optional[int] = None
+    type: Optional[str] = None
     netChange: Optional[float] = None
 
 
