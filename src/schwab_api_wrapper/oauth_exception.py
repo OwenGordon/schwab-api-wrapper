@@ -1,4 +1,4 @@
-from .oauth_schemas import Token, OAuthError
+from schwab_api_wrapper.schemas.oauth import OAuthError
 
 
 class OAuthException(Exception):
