@@ -1,6 +1,7 @@
 import logging
 import re
 
+
 class TokenCensorFilter(logging.Filter):
     def __init__(self):
         super().__init__()
@@ -24,7 +25,7 @@ class TokenCensorFilter(logging.Filter):
 
     def filter(self, record):
         message = record.getMessage()
-        
+
         for pattern, replacement in self.patterns:
             message = re.sub(pattern, replacement, message, flags=re.DOTALL)
 

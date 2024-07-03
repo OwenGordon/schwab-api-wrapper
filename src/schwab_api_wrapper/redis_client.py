@@ -29,7 +29,9 @@ class RedisClient(BaseClient):
         self.parameters = self.load_parameters()
         self.set_parameter_instance_values(self.parameters)
 
-        self.assert_refresh_token_not_expired(renew_refresh_token)  # check if refresh token is expired and exit if so
+        self.assert_refresh_token_not_expired(
+            renew_refresh_token
+        )  # check if refresh token is expired and exit if so
 
         if immediate_refresh:
             self.refresh()
@@ -38,7 +40,7 @@ class RedisClient(BaseClient):
         return redis.Redis(
             host=self.redis_parameters[KEY_REDIS_HOST],
             port=self.redis_parameters[KEY_REDIS_PORT],
-            password=self.redis_parameters[KEY_REDIS_PASSWORD]
+            password=self.redis_parameters[KEY_REDIS_PASSWORD],
         )
 
     def get_encryption_key(self) -> bytes:

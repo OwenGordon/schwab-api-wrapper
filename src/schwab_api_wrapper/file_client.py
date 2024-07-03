@@ -19,7 +19,9 @@ class FileClient(BaseClient):
 
         self.set_parameter_instance_values(self.parameters)
 
-        self.assert_refresh_token_not_expired(renew_refresh_token)  # check if refresh token is expired and exit if so
+        self.assert_refresh_token_not_expired(
+            renew_refresh_token
+        )  # check if refresh token is expired and exit if so
 
         if immediate_refresh:
             self.refresh()

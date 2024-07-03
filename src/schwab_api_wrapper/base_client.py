@@ -15,10 +15,15 @@ from .response_aware_retry import ResponseAwareRetry
 from .utils import *
 
 from schwab_api_wrapper.schemas.market_data.quotes_schemas import QuoteResponse
-from schwab_api_wrapper.schemas.market_data.market_hours_schemas import MarketHoursResponse
+from schwab_api_wrapper.schemas.market_data.market_hours_schemas import (
+    MarketHoursResponse,
+)
 from schwab_api_wrapper.schemas.market_data import CandleList
 from schwab_api_wrapper.schemas.market_data.errors_schema import MarketDataError
-from schwab_api_wrapper.schemas.market_data.instruments_schemas import InstrumentsRoot, default_instrument_response
+from schwab_api_wrapper.schemas.market_data.instruments_schemas import (
+    InstrumentsRoot,
+    default_instrument_response,
+)
 
 from schwab_api_wrapper.schemas.trader_api import (
     AccountNumbersResponse,
@@ -30,7 +35,12 @@ from schwab_api_wrapper.schemas.trader_api import (
     Transaction,
     TransactionType,
 )
-from schwab_api_wrapper.schemas.trader_api.orders_schemas import Order, OrderRequest, PreviewOrder, OrderResponse
+from schwab_api_wrapper.schemas.trader_api.orders_schemas import (
+    Order,
+    OrderRequest,
+    PreviewOrder,
+    OrderResponse,
+)
 from schwab_api_wrapper.schemas.trader_api.errors_schema import AccountsAndTradingError
 
 from schwab_api_wrapper.schemas.oauth import Token, OAuthError
@@ -78,7 +88,8 @@ class BaseClient(ABC):
     def assert_refresh_token_not_expired(self, renew_refresh_token) -> None:
         if (
             not renew_refresh_token
-            and datetime.now(ZoneInfo('America/New_York')) >= self.refresh_token_valid_until
+            and datetime.now(ZoneInfo("America/New_York"))
+            >= self.refresh_token_valid_until
         ):
             logging.getLogger(__name__).fatal(
                 "The API OAuth Refresh token has expired. "
@@ -92,7 +103,9 @@ class BaseClient(ABC):
 
     @property
     def need_refresh(self) -> bool:
-        return datetime.now(ZoneInfo('America/New_York')) >= self.access_token_valid_until
+        return (
+            datetime.now(ZoneInfo("America/New_York")) >= self.access_token_valid_until
+        )
 
     @property
     def headers(self):
@@ -106,7 +119,7 @@ class BaseClient(ABC):
             "accept": "application/json",
             "Authorization": f"Bearer {self.access_token}",
         }
-     
+
     def get_refresh_token_expiration(self) -> datetime:
         return self.refresh_token_valid_until
 
@@ -114,8 +127,10 @@ class BaseClient(ABC):
         token, error = self.refresh_access_token()
 
         if error is not None:
-            raise OAuthException(f"Unable to generate refresh token", error, self.parameters)
-        
+            raise OAuthException(
+                f"Unable to generate refresh token", error, self.parameters
+            )
+
         self.save_token(token)
 
         self.retry_session = requests.Session()
@@ -157,7 +172,9 @@ class BaseClient(ABC):
 
         return response.url
 
-    def generate_refresh_token(self, authorization_code) -> tuple[Optional[Token], Optional[OAuthError]]:
+    def generate_refresh_token(
+        self, authorization_code
+    ) -> tuple[Optional[Token], Optional[OAuthError]]:
         # Access Token" - Request Example (CURL)
         # {curl -X POST \https://api.schwabapi.com/v1/oauth/token \-H 'Authorization: Basic {BASE64_ENCODED_Client_ID:Client_Secret} \-H 'Content-Type: application/x-www-form-urlencoded' \-d 'grant_type=authorization_code&code={AUTHORIZATION_CODE_VALUE}&redirect_uri=https://example_url.com/callback_example'}
         # Response Example (body)
@@ -217,8 +234,10 @@ class BaseClient(ABC):
         token, error = self.generate_refresh_token(authorization_code)
 
         if error is not None:
-            raise OAuthException(f"Unable to generate refresh token", error, self.parameters)
-        
+            raise OAuthException(
+                f"Unable to generate refresh token", error, self.parameters
+            )
+
         self.save_token(token, refresh_token_reset=True)
 
     @abstractmethod
@@ -242,9 +261,7 @@ class BaseClient(ABC):
             KEY_CLIENT_SECRET
         ]  # client secret is the "app secret" on dev site
 
-        self.redirect_uri = parameters[
-            KEY_URI_REDIRECT
-        ]  # "callback url" on dev site
+        self.redirect_uri = parameters[KEY_URI_REDIRECT]  # "callback url" on dev site
 
         self.refresh_token = parameters[KEY_TOKEN_REFRESH]
         self.access_token = parameters[KEY_TOKEN_ACCESS]
@@ -259,11 +276,15 @@ class BaseClient(ABC):
     def update_parameters(self, token: Token, refresh_token_reset: bool = False):
         self.refresh_token = token.refresh_token  # valid for 7 days
         if refresh_token_reset:
-            self.refresh_token_valid_until = datetime.now(ZoneInfo('America/New_York')) + timedelta(
+            self.refresh_token_valid_until = datetime.now(
+                ZoneInfo("America/New_York")
+            ) + timedelta(
                 days=7
             )  # utc time refresh token is valid until
         self.access_token = token.access_token  # valid for 30 minutes
-        self.access_token_valid_until = datetime.now(ZoneInfo('America/New_York')) + timedelta(
+        self.access_token_valid_until = datetime.now(
+            ZoneInfo("America/New_York")
+        ) + timedelta(
             seconds=1800
         )  # utc time when access token is invalid
         self.id_token = token.id_token
@@ -318,7 +339,7 @@ class BaseClient(ABC):
             response = self.session.get(url, params=params, headers=headers)
 
         return response
-    
+
     def quotes(
         self,
         symbols: list[str],
@@ -359,12 +380,9 @@ class BaseClient(ABC):
             return QuoteResponse(**response.json()), None
         else:
             return None, MarketDataError(**response.json())
-        
+
     def instruments(
-        self,
-        symbols: list[str],
-        projection: Projection,
-        retry: bool = False
+        self, symbols: list[str], projection: Projection, retry: bool = False
     ) -> tuple[Optional[InstrumentsRoot], Optional[MarketDataError]]:
         """
         Get Instruments details by using different projections. Get more specific fundamental instrument data by using fundamental as the projection.
@@ -375,10 +393,7 @@ class BaseClient(ABC):
             projection: search by available values : symbol-search, symbol-regex, desc-search, desc-regex, search, fundamental
         """
 
-        params = {
-            "symbol": ",".join(symbols),
-            "projection": projection.value
-        }
+        params = {"symbol": ",".join(symbols), "projection": projection.value}
 
         logging.getLogger(__name__).debug("Instruments Params:\n" + pformat(params))
 
@@ -397,11 +412,12 @@ class BaseClient(ABC):
             if len(data) == 1:
                 return InstrumentsRoot(**response.json()), None
             else:
-                instruments = [default_instrument_response(symbol) for symbol in symbols]
+                instruments = [
+                    default_instrument_response(symbol) for symbol in symbols
+                ]
                 return InstrumentsRoot(instruments=instruments), None
         else:
             return None, MarketDataError(**response.json())
-
 
     def market_hours(
         self,
@@ -473,9 +489,9 @@ class BaseClient(ABC):
         date_format = "%Y-%m-%d"
 
         if query_date is None:
-            query_date = datetime.now(ZoneInfo('America/New_York')).date()
+            query_date = datetime.now(ZoneInfo("America/New_York")).date()
 
-        today = datetime.now(ZoneInfo('America/New_York')).date()
+        today = datetime.now(ZoneInfo("America/New_York")).date()
         range_beginning = today
         range_ending = today + timedelta(days=365)
 
@@ -583,9 +599,10 @@ class BaseClient(ABC):
         logging.getLogger(__name__).debug("Response JSON:\n" + pformat(response.json()))
 
         if response.status_code == STATUS_CODE_OK:
-            return AccountNumbersResponse(
-                response.json()
-            ), None  # response.json() is a list if 200 OK so don't destructure
+            return (
+                AccountNumbersResponse(response.json()),
+                None,
+            )  # response.json() is a list if 200 OK so don't destructure
         else:
             return None, AccountsAndTradingError(**response.json())
 
@@ -618,9 +635,7 @@ class BaseClient(ABC):
         logging.getLogger(__name__).debug("Response JSON:\n" + pformat(response.json()))
 
         if response.status_code == STATUS_CODE_OK:
-            return AccountsResponse(
-                response.json()  # json is a list not a dict
-            ), None
+            return AccountsResponse(response.json()), None  # json is a list not a dict
         else:
             return None, AccountsAndTradingError(**response.json())
 
@@ -684,13 +699,17 @@ class BaseClient(ABC):
             from_entered_time.tzinfo is None
             or from_entered_time.tzinfo.utcoffset(from_entered_time) is None
         ):
-            from_entered_time = from_entered_time.replace(tzinfo=ZoneInfo('America/New_York'))
+            from_entered_time = from_entered_time.replace(
+                tzinfo=ZoneInfo("America/New_York")
+            )
 
         if (
             to_entered_time.tzinfo is None
             or to_entered_time.tzinfo.utcoffset(to_entered_time) is None
         ):
-            to_entered_time = to_entered_time.replace(tzinfo=ZoneInfo('America/New_York'))
+            to_entered_time = to_entered_time.replace(
+                tzinfo=ZoneInfo("America/New_York")
+            )
 
         params = {
             "fromEnteredTime": from_entered_time.isoformat(),
@@ -738,13 +757,17 @@ class BaseClient(ABC):
             from_entered_time.tzinfo is None
             or from_entered_time.tzinfo.utcoffset(from_entered_time) is None
         ):
-            from_entered_time = from_entered_time.replace(tzinfo=ZoneInfo('America/New_York'))
+            from_entered_time = from_entered_time.replace(
+                tzinfo=ZoneInfo("America/New_York")
+            )
 
         if (
             to_entered_time.tzinfo is None
             or to_entered_time.tzinfo.utcoffset(to_entered_time) is None
         ):
-            to_entered_time = to_entered_time.replace(tzinfo=ZoneInfo('America/New_York'))
+            to_entered_time = to_entered_time.replace(
+                tzinfo=ZoneInfo("America/New_York")
+            )
 
         params = {
             "fromEnteredTime": from_entered_time.isoformat(),
@@ -823,7 +846,9 @@ class BaseClient(ABC):
         if response.status_code == STATUS_CODE_CREATED:
             location = response.headers["Location"]
             order_id = location.split("/")[-1]
-            order_details, error = self.get_single_order(encrypted_account_number, int(order_id))
+            order_details, error = self.get_single_order(
+                encrypted_account_number, int(order_id)
+            )
             if order_details:
                 return order_details, None
             else:
@@ -831,7 +856,9 @@ class BaseClient(ABC):
                 new_message = "Order placed successfully. GET order API call failed."
                 if "message" in order_error_json:
                     new_message = f"{new_message} {order_error_json['message']}"
-                return None, AccountsAndTradingError(**{**order_error_json, "message": new_message})
+                return None, AccountsAndTradingError(
+                    **{**order_error_json, "message": new_message}
+                )
         else:
             return None, AccountsAndTradingError(**response.json())
 
@@ -857,9 +884,10 @@ class BaseClient(ABC):
         if response.status_code == STATUS_CODE_OK:
             return None, None  # is there something else we can return here?
         else:
-            logging.getLogger(__name__).debug("Response JSON:\n" + pformat(response.json()))
+            logging.getLogger(__name__).debug(
+                "Response JSON:\n" + pformat(response.json())
+            )
             return None, AccountsAndTradingError(**response.json())
-
 
     def replace_order(
         self, encrypted_account_number: str, order_id: int, order_request: OrderRequest
@@ -892,7 +920,9 @@ class BaseClient(ABC):
         if response.status_code == STATUS_CODE_CREATED:
             location = response.headers["Location"]
             order_id = location.split("/")[-1]
-            order_details, error = self.get_single_order(encrypted_account_number, int(order_id))
+            order_details, error = self.get_single_order(
+                encrypted_account_number, int(order_id)
+            )
             if order_details:
                 return order_details, None
             else:
@@ -900,7 +930,9 @@ class BaseClient(ABC):
                 new_message = "Order placed successfully. GET order API call failed."
                 if "message" in order_error_json:
                     new_message = f"{new_message} {order_error_json['message']}"
-                return None, AccountsAndTradingError(**{**order_error_json, "message": new_message})
+                return None, AccountsAndTradingError(
+                    **{**order_error_json, "message": new_message}
+                )
         else:
             return None, AccountsAndTradingError(**response.json())
 
@@ -959,22 +991,21 @@ class BaseClient(ABC):
         url = f"{TRADER_API_ENDPOINT}/accounts/{encrypted_account_number}/transactions"
 
         if start_date.tzinfo is None or start_date.tzinfo.utcoffset(start_date) is None:
-            start_date = start_date.replace(tzinfo=ZoneInfo('America/New_York'))
+            start_date = start_date.replace(tzinfo=ZoneInfo("America/New_York"))
 
         if end_date.tzinfo is None or end_date.tzinfo.utcoffset(end_date) is None:
-            end_date = end_date.replace(tzinfo=ZoneInfo('America/New_York'))
+            end_date = end_date.replace(tzinfo=ZoneInfo("America/New_York"))
 
         params = {
             "startDate": start_date.isoformat(),
             "endDate": end_date.isoformat(),
-            "types": ",".join(
-                map(
-                    lambda t_type: t_type.value, 
-                    transaction_type
-                )
-            ) if isinstance(transaction_type, Iterable) else transaction_type.value,
+            "types": (
+                ",".join(map(lambda t_type: t_type.value, transaction_type))
+                if isinstance(transaction_type, Iterable)
+                else transaction_type.value
+            ),
         }
-        
+
         if symbol:
             params["symbol"] = quote(symbol)
 

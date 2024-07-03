@@ -15,7 +15,7 @@ from schwab_api_wrapper.utils import (
     Frequency,
     MarketID,
     AccountsField,
-    Projection
+    Projection,
 )
 
 from schwab_api_wrapper.schemas.trader_api import OrderRequest, TransactionType

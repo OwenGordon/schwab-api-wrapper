@@ -7,4 +7,3 @@ class OAuthException(Exception):
         self.title = title
         self.error = error
         self.parameters = parameters
-
