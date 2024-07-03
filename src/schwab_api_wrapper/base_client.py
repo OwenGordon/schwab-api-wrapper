@@ -4,37 +4,39 @@ from requests import Response
 from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
 from datetime import datetime, timedelta, date
-from typing import Union, List
+from typing import Union
 from collections.abc import Iterable
 import logging
-from devtools import pprint, pformat
+from devtools import pformat
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from .response_aware_retry import ResponseAwareRetry
 from .utils import *
 
-from .market_data.quotes_schemas import QuoteResponse
-from .market_data.market_hours_schemas import MarketHoursResponse
-from .market_data.price_history_schemas import CandleList
-from .market_data.errors_schema import MarketDataError
-from .market_data.instruments_schemas import InstrumentsRoot, default_instrument_response
+from schwab_api_wrapper.schemas.market_data.quotes_schemas import QuoteResponse
+from schwab_api_wrapper.schemas.market_data.market_hours_schemas import MarketHoursResponse
+from schwab_api_wrapper.schemas.market_data import CandleList
+from schwab_api_wrapper.schemas.market_data.errors_schema import MarketDataError
+from schwab_api_wrapper.schemas.market_data.instruments_schemas import InstrumentsRoot, default_instrument_response
 
-from .trader_api.accounts_schemas import (
+from schwab_api_wrapper.schemas.trader_api import (
     AccountNumbersResponse,
     AccountsResponse,
     Account,
 )
-from .trader_api.transactions_schemas import (
+from schwab_api_wrapper.schemas.trader_api import (
     TransactionResponse,
     Transaction,
     TransactionType,
 )
-from .trader_api.orders_schemas import Order, OrderRequest, PreviewOrder, OrderResponse
-from .trader_api.errors_schema import AccountsAndTradingError
+from schwab_api_wrapper.schemas.trader_api.orders_schemas import Order, OrderRequest, PreviewOrder, OrderResponse
+from schwab_api_wrapper.schemas.trader_api.errors_schema import AccountsAndTradingError
 
-from .oauth_schemas import Token, OAuthError
+from schwab_api_wrapper.schemas.oauth import Token, OAuthError
 from .oauth_exception import OAuthException
+
+from .token_censor_filter import TokenCensorFilter
 
 
 # TODO if the response doesn't have a .json() field it will error at us
@@ -69,7 +71,11 @@ class BaseClient(ABC):
 
     session = requests.Session()
 
-    def fail_if_expired_refresh_token(self, renew_refresh_token) -> None:
+    # Instantiate and configure the global filter
+    token_filter = TokenCensorFilter()
+    logging.getLogger(__name__).addFilter(token_filter)
+
+    def assert_refresh_token_not_expired(self, renew_refresh_token) -> None:
         if (
             not renew_refresh_token
             and datetime.now(ZoneInfo('America/New_York')) >= self.refresh_token_valid_until
