@@ -116,8 +116,6 @@ class InstrumentsRoot(BaseModel):
     instruments: list[InstrumentResponse]
 
 
-
-
 def default_instrument_response(symbol) -> InstrumentResponse:
     instrument = {
         "cusip": None,
