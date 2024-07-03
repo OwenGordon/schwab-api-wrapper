@@ -64,8 +64,10 @@ class Fundamental(BaseModel):
     divYield: float  # Dividend yield
     eps: float  # Earnings per Share
     fundLeverageFactor: float  # Fund Leverage Factor + > 0 <-
-    nextDivExDate: datetime | None = None # Next Dividend date in yyyy-MM-ddThh:mm:ssZ
-    nextDivPayDate: datetime | None = None  # Next Dividend pay date in yyyy-MM-ddThh:mm:ssZ
+    nextDivExDate: datetime | None = None  # Next Dividend date in yyyy-MM-ddThh:mm:ssZ
+    nextDivPayDate: datetime | None = (
+        None  # Next Dividend pay date in yyyy-MM-ddThh:mm:ssZ
+    )
     peRatio: float  # P/E Ratio
     divFreq: Optional[DivFreqOption] = None  # Dividend frequency
     fundStrategy: Optional[FundStrategyOption] = None  # FundStrategy

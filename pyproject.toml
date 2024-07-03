@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "schwab_api_wrapper"
-version = "0.1.14"
+version = "0.2.0"
 authors = [
   { name="Owen Gordon", email="owengordon330@outlook.com" },
 ]
@@ -20,3 +20,6 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/OwenGordon/schwab-api-wrapper"
 Issues = "https://github.com/OwenGordon/schwab-api-wrapper/issues"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

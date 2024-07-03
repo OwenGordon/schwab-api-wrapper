@@ -116,8 +116,6 @@ class InstrumentsRoot(BaseModel):
     instruments: list[InstrumentResponse]
 
 
-
-
 def default_instrument_response(symbol) -> InstrumentResponse:
     instrument = {
         "cusip": None,
@@ -185,7 +183,7 @@ def default_instrument_response(symbol) -> InstrumentResponse:
             "nextDividendPayDate": None,
             "nextDividendDate": None,
             "fundLeverageFactor": 0,
-            "fundStrategy": None
+            "fundStrategy": None,
         },
         "instrumentInfo": {
             "cusip": "",
@@ -194,7 +192,7 @@ def default_instrument_response(symbol) -> InstrumentResponse:
             "exchange": "",
             "assetType": AssetType.UNKNOWN,
         },
-        "bondInstrumentInfo": None
+        "bondInstrumentInfo": None,
     }
 
     return InstrumentResponse(**instrument)

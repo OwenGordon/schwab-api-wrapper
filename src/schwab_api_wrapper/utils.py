@@ -3,6 +3,12 @@ from urllib.parse import urlparse, parse_qs
 from typing import Optional
 
 
+KEY_REDIS_HOST = "host"
+KEY_REDIS_PORT = "port"
+KEY_REDIS_PASSWORD = "password"
+KEY_REDIS_ENCRYPTION_KEY = "encryption_key"
+
+
 KEY_CLIENT_ID = "client_id"
 KEY_CLIENT_SECRET = "client_secret"
 KEY_URL_AUTH = "auth_url"

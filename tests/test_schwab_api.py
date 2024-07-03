@@ -2,8 +2,7 @@ import unittest
 from unittest.mock import patch, mock_open
 import responses
 import json
-from datetime import datetime, timedelta, timezone
-from devtools import pprint
+from datetime import datetime, timedelta
 import os
 from pathlib import Path
 import logging
@@ -11,23 +10,30 @@ from zoneinfo import ZoneInfo
 
 from schwab_api_wrapper.utils import *
 
-from schwab_api_wrapper.trader_api.accounts_schemas import AccountNumbersResponse
-from schwab_api_wrapper.trader_api.errors_schema import AccountsAndTradingError
-from schwab_api_wrapper.trader_api.accounts_schemas import AccountsResponse, Account
-from schwab_api_wrapper.trader_api.orders_schemas import OrderResponse, Order, OrderRequest
-from schwab_api_wrapper.trader_api.transactions_schemas import (
+from schwab_api_wrapper.schemas.trader_api.accounts_schemas import AccountNumbersResponse
+from schwab_api_wrapper.schemas.trader_api import AccountsAndTradingError
+from schwab_api_wrapper.schemas.trader_api.accounts_schemas import AccountsResponse, Account
+from schwab_api_wrapper.schemas.trader_api import (
+    OrderResponse,
+    Order,
+    OrderRequest,
+    PreviewOrder,
+)
+from schwab_api_wrapper.schemas.trader_api.transactions_schemas import (
     Transaction,
     TransactionResponse,
     TransactionType,
 )
 
-from schwab_api_wrapper.market_data.quotes_schemas import QuoteResponse
-from schwab_api_wrapper.market_data.errors_schema import MarketDataError
-from schwab_api_wrapper.market_data.market_hours_schemas import MarketHoursResponse
-from schwab_api_wrapper.market_data.price_history_schemas import CandleList
-from schwab_api_wrapper.market_data.instruments_schemas import InstrumentsRoot
+from schwab_api_wrapper.schemas.market_data import QuoteResponse
+from schwab_api_wrapper.schemas.market_data import MarketDataError
+from schwab_api_wrapper.schemas.market_data import MarketHoursResponse
+from schwab_api_wrapper.schemas.market_data.price_history_schemas import CandleList
+from schwab_api_wrapper.schemas.market_data import InstrumentsRoot
 
-from schwab_api_wrapper.schwab import SchwabAPI, OAuthException
+from schwab_api_wrapper.file_client import FileClient
+
+from schwab_api_wrapper.oauth_exception import OAuthException
 
 logging.basicConfig(level=logging.INFO)
 
@@ -42,19 +48,19 @@ fake_json = {
     KEY_TOKEN_ACCESS: "your_access_token",
     KEY_TOKEN_ID: "your_id_token",
     KEY_ACCESS_TOKEN_VALID_UNTIL: (
-        datetime.now(ZoneInfo('America/New_York')) + timedelta(minutes=30)
+        datetime.now(ZoneInfo("America/New_York")) + timedelta(minutes=30)
     ).isoformat(),
     KEY_REFRESH_TOKEN_VALID_UNTIL: (
-        datetime.now(ZoneInfo('America/New_York')) + timedelta(days=7)
+        datetime.now(ZoneInfo("America/New_York")) + timedelta(days=7)
     ).isoformat(),
 }
 
 
 class TestSchwabAPI(unittest.TestCase):
     @patch("builtins.open", new_callable=mock_open, read_data=json.dumps(fake_json))
-    def setUp(self, mock_file) -> None:  # mock_file is requred for the @patch wrapper
-        self.api = SchwabAPI(PARAMETERS_FILE_NAME, immediate_refresh=False)
-        self.encrypted_account_number= "encrypted_account_number"
+    def setUp(self, mock_file) -> None:  # mock_file is required for the @patch wrapper
+        self.api = FileClient(PARAMETERS_FILE_NAME, immediate_refresh=False)
+        self.encrypted_account_number = "encrypted_account_number"
         self.order_id = 1324354657
         self.transaction_id = 20240424145200
 
@@ -72,7 +78,7 @@ class TestSchwabAPI(unittest.TestCase):
                 KEY_TOKEN_REFRESH: "new_refresh_token",
                 KEY_TOKEN_ID: "new_id_token",
                 "scope": "api",
-                "token_type": "Bearer"
+                "token_type": "Bearer",
             },
             status=200,
         )
@@ -86,7 +92,7 @@ class TestSchwabAPI(unittest.TestCase):
         self.assertEqual(self.api.id_token, "new_id_token")
         self.assertLess(
             self.api.access_token_valid_until,
-            datetime.now(ZoneInfo('America/New_York')) + timedelta(minutes=30),
+            datetime.now(ZoneInfo("America/New_York")) + timedelta(minutes=30),
         )
 
     @patch("builtins.open", new_callable=mock_open, read_data=json.dumps(fake_json))
@@ -98,10 +104,10 @@ class TestSchwabAPI(unittest.TestCase):
             responses.POST,
             TOKEN_URL,
             json={
-                'error': 'unsupported_token_type',
-                'error_description': (
+                "error": "unsupported_token_type",
+                "error_description": (
                     '400 Bad Request: "{"error_description":"Exception while authenticating refresh token [tokenDigest=******, Exception=Failed refresh token authentication [tokenDigest=******]]","error":"refresh_token_authentication_error"}"'
-                )
+                ),
             },
             status=400,
         )
@@ -307,7 +313,9 @@ class TestSchwabAPI(unittest.TestCase):
             status=200,
         )
 
-        result, error = self.api.market_hours(markets=[MarketID.EQUITY, MarketID.OPTION])
+        result, error = self.api.market_hours(
+            markets=[MarketID.EQUITY, MarketID.OPTION]
+        )
 
         self.assertIsInstance(result, MarketHoursResponse)
         self.assertIsNone(error)
@@ -358,7 +366,9 @@ class TestSchwabAPI(unittest.TestCase):
             status=500,
         )
 
-        result, error = self.api.market_hours(markets=[MarketID.EQUITY, MarketID.OPTION])
+        result, error = self.api.market_hours(
+            markets=[MarketID.EQUITY, MarketID.OPTION]
+        )
         self.assertIsNone(result)
         self.assertIsInstance(error, MarketDataError)
         self.assertIsNone(error.message)
@@ -716,7 +726,9 @@ class TestSchwabAPI(unittest.TestCase):
             status=200,
         )
 
-        result, error = self.api.get_all_orders(datetime(2023, 1, 1), datetime(2023, 12, 31))
+        result, error = self.api.get_all_orders(
+            datetime(2023, 1, 1), datetime(2023, 12, 31)
+        )
         self.assertIsInstance(result, OrderResponse)
         self.assertIsNone(error)
 
@@ -731,7 +743,9 @@ class TestSchwabAPI(unittest.TestCase):
             status=400,
         )
 
-        result, error = self.api.get_all_orders(datetime(2023, 1, 1), datetime(2023, 12, 31))
+        result, error = self.api.get_all_orders(
+            datetime(2023, 1, 1), datetime(2023, 12, 31)
+        )
         self.assertIsNone(result)
         self.assertIsInstance(error, AccountsAndTradingError)
         self.assertEqual(
@@ -790,7 +804,9 @@ class TestSchwabAPI(unittest.TestCase):
             status=200,
         )
 
-        result, error = self.api.get_single_order(self.encrypted_account_number, self.order_id)
+        result, error = self.api.get_single_order(
+            self.encrypted_account_number, self.order_id
+        )
         self.assertIsInstance(result, Order)
         self.assertIsNone(error)
 
@@ -850,7 +866,9 @@ class TestSchwabAPI(unittest.TestCase):
 
         order_request = OrderRequest(**order_details)
 
-        result, error = self.api.place_order(self.encrypted_account_number, order_request)
+        result, error = self.api.place_order(
+            self.encrypted_account_number, order_request
+        )
 
         self.assertIsInstance(result, Order)
         self.assertIsNone(error)
@@ -890,10 +908,15 @@ class TestSchwabAPI(unittest.TestCase):
 
         order_request = OrderRequest(**order_details)
 
-        result, error = self.api.place_order(self.encrypted_account_number, order_request)
+        result, error = self.api.place_order(
+            self.encrypted_account_number, order_request
+        )
         self.assertIsNone(result)
         self.assertIsInstance(error, AccountsAndTradingError)
-        self.assertEqual(error.message, "Order placed successfully. GET order API call failed. Order not found")
+        self.assertEqual(
+            error.message,
+            "Order placed successfully. GET order API call failed. Order not found",
+        )
 
     @responses.activate
     def test_place_order_internal_server_error(self):
@@ -929,7 +952,9 @@ class TestSchwabAPI(unittest.TestCase):
 
         order_request = OrderRequest(**order_details)
 
-        result, error = self.api.place_order(self.encrypted_account_number, order_request)
+        result, error = self.api.place_order(
+            self.encrypted_account_number, order_request
+        )
         self.assertIsNone(result)
         self.assertIsInstance(error, AccountsAndTradingError)
         self.assertEqual(error.errors[0].status, 500)
@@ -967,13 +992,13 @@ class TestSchwabAPI(unittest.TestCase):
 
         order_request = OrderRequest(**order_details)
 
-        result, error = self.api.place_order(self.encrypted_account_number, order_request)
+        result, error = self.api.place_order(
+            self.encrypted_account_number, order_request
+        )
         self.assertIsNone(result)
         self.assertIsInstance(error, AccountsAndTradingError)
         self.assertEqual(error.message, "Invalid request data")
-        self.assertEqual(
-            error.errors[0], "Field: orderStrategyType - must not be null"
-        )
+        self.assertEqual(error.errors[0], "Field: orderStrategyType - must not be null")
         self.assertEqual(
             error.errors[1],
             "Duration cannot be null. Valid values: DAY, GOOD_TILL_CANCEL, FILL_OR_KILL",
@@ -1007,7 +1032,9 @@ class TestSchwabAPI(unittest.TestCase):
 
         order_request = OrderRequest(**order_details)
 
-        result, error = self.api.place_order(self.encrypted_account_number, order_request)
+        result, error = self.api.place_order(
+            self.encrypted_account_number, order_request
+        )
         self.assertIsNone(result)
         self.assertIsInstance(error, AccountsAndTradingError)
         self.assertEqual(
@@ -1022,7 +1049,9 @@ class TestSchwabAPI(unittest.TestCase):
             status=200,
         )
 
-        result, error = self.api.cancel_order(self.encrypted_account_number, self.order_id)
+        result, error = self.api.cancel_order(
+            self.encrypted_account_number, self.order_id
+        )
         # the function returns no result so result will ways be None and this test will never fail
         self.assertIsNone(result)
         self.assertIsNone(error)
@@ -1036,7 +1065,9 @@ class TestSchwabAPI(unittest.TestCase):
             status=401,
         )
 
-        result, error = self.api.cancel_order(self.encrypted_account_number, self.order_id)
+        result, error = self.api.cancel_order(
+            self.encrypted_account_number, self.order_id
+        )
         self.assertIsNone(result)
         self.assertIsInstance(error, AccountsAndTradingError)
 
@@ -1150,9 +1181,11 @@ class TestSchwabAPI(unittest.TestCase):
 
         order_request = OrderRequest(**order_details)
 
-        result, error = self.api.preview_order(self.encrypted_account_number, order_request)
+        result, error = self.api.preview_order(
+            self.encrypted_account_number, order_request
+        )
 
-        self.assertIsInstance(result, Order)
+        self.assertIsInstance(result, PreviewOrder)
         self.assertIsNone(error)
 
     @responses.activate
@@ -1181,7 +1214,9 @@ class TestSchwabAPI(unittest.TestCase):
 
         order_request = OrderRequest(**order_details)
 
-        result, error = self.api.preview_order(self.encrypted_account_number, order_request)
+        result, error = self.api.preview_order(
+            self.encrypted_account_number, order_request
+        )
         self.assertIsNone(result)
         self.assertIsInstance(error, AccountsAndTradingError)
 
@@ -1373,24 +1408,24 @@ class TestSchwabAPI(unittest.TestCase):
             responses.GET,
             INSTRUMENTS_URL,
             json={
-                'instruments': [
+                "instruments": [
                     {
-                        'cusip': '037833100',
-                        'symbol': 'AAPL',
-                        'description': 'Apple Inc',
-                        'exchange': 'NASDAQ',
-                        'assetType': 'EQUITY',
+                        "cusip": "037833100",
+                        "symbol": "AAPL",
+                        "description": "Apple Inc",
+                        "exchange": "NASDAQ",
+                        "assetType": "EQUITY",
                     },
                     {
-                        'cusip': '00206R102',
-                        'symbol': 'T',
-                        'description': 'A T & T Inc',
-                        'exchange': 'NYSE',
-                        'assetType': 'EQUITY',
+                        "cusip": "00206R102",
+                        "symbol": "T",
+                        "description": "A T & T Inc",
+                        "exchange": "NYSE",
+                        "assetType": "EQUITY",
                     },
                 ],
             },
-            status=200
+            status=200,
         )
 
         result, error = self.api.instruments(["AAPL", "T"], Projection.SYMBOL_SEARCH)
@@ -1425,31 +1460,33 @@ class TestSchwabAPI(unittest.TestCase):
             responses.GET,
             INSTRUMENTS_URL,
             json={
-                'errors': [
+                "errors": [
                     {
-                        'id': 'cd214562-7489-4c98-af64-e3db04037f09',
-                        'status': '400',
-                        'title': 'Bad Request',
-                        'detail': (
-                            'Projection has to be one of following: symbol-search,symbol-regex,desc-search,desc-regex,search,funda'
-                            'mental'
+                        "id": "cd214562-7489-4c98-af64-e3db04037f09",
+                        "status": "400",
+                        "title": "Bad Request",
+                        "detail": (
+                            "Projection has to be one of following: symbol-search,symbol-regex,desc-search,desc-regex,search,funda"
+                            "mental"
                         ),
-                        'source': {
-                            'parameter': 'projection',
+                        "source": {
+                            "parameter": "projection",
                         },
                     },
                 ],
             },
-            status=400
+            status=400,
         )
 
         result, error = self.api.instruments(["AAPL", "T"], Projection.SYMBOL_SEARCH)
 
         self.assertIsNone(result)
         self.assertIsInstance(error, MarketDataError)
-        self.assertEqual(error.errors[0].detail, 'Projection has to be one of following: symbol-search,symbol-regex,desc-search,desc-regex,search,fundamental')
-        self.assertEqual(error.errors[0].source.parameter, 'projection')
-
+        self.assertEqual(
+            error.errors[0].detail,
+            "Projection has to be one of following: symbol-search,symbol-regex,desc-search,desc-regex,search,fundamental",
+        )
+        self.assertEqual(error.errors[0].source.parameter, "projection")
 
     @responses.activate
     def test_instruments_bad_symbol(self):
@@ -1457,28 +1494,27 @@ class TestSchwabAPI(unittest.TestCase):
             responses.GET,
             INSTRUMENTS_URL,
             json={
-                'errors': [
+                "errors": [
                     {
-                        'id': '4c8591c4-0946-4424-9648-fe7b6e026906',
-                        'status': '400',
-                        'title': 'Bad Request',
-                        'detail': 'Symbol cannot be null or empty.',
-                        'source': {
-                            'parameter': 'symbol',
+                        "id": "4c8591c4-0946-4424-9648-fe7b6e026906",
+                        "status": "400",
+                        "title": "Bad Request",
+                        "detail": "Symbol cannot be null or empty.",
+                        "source": {
+                            "parameter": "symbol",
                         },
                     },
                 ],
             },
-            status=400
+            status=400,
         )
 
         result, error = self.api.instruments(["AAPL", "T"], Projection.SYMBOL_SEARCH)
 
         self.assertIsNone(result)
         self.assertIsInstance(error, MarketDataError)
-        self.assertEqual(error.errors[0].detail, 'Symbol cannot be null or empty.')
-        self.assertEqual(error.errors[0].source.parameter, 'symbol')
-
+        self.assertEqual(error.errors[0].detail, "Symbol cannot be null or empty.")
+        self.assertEqual(error.errors[0].source.parameter, "symbol")
 
 
 if __name__ == "__main__":

@@ -1,48 +1,52 @@
-from __future__ import annotations
-import json
 import requests
+from abc import ABC, abstractmethod
 from requests import Response
 from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
 from datetime import datetime, timedelta, date
-from typing import Optional, Union, List
+from typing import Union
 from collections.abc import Iterable
 import logging
-from devtools import pprint, pformat
+from devtools import pformat
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from .response_aware_retry import ResponseAwareRetry
 from .utils import *
 
-from .market_data.quotes_schemas import QuoteResponse
-from .market_data.market_hours_schemas import MarketHoursResponse
-from .market_data.price_history_schemas import CandleList
-from .market_data.errors_schema import MarketDataError
-from .market_data.instruments_schemas import InstrumentsRoot, default_instrument_response
+from schwab_api_wrapper.schemas.market_data.quotes_schemas import QuoteResponse
+from schwab_api_wrapper.schemas.market_data.market_hours_schemas import (
+    MarketHoursResponse,
+)
+from schwab_api_wrapper.schemas.market_data import CandleList
+from schwab_api_wrapper.schemas.market_data.errors_schema import MarketDataError
+from schwab_api_wrapper.schemas.market_data.instruments_schemas import (
+    InstrumentsRoot,
+    default_instrument_response,
+)
 
-from .trader_api.accounts_schemas import (
+from schwab_api_wrapper.schemas.trader_api import (
     AccountNumbersResponse,
     AccountsResponse,
     Account,
 )
-from .trader_api.transactions_schemas import (
+from schwab_api_wrapper.schemas.trader_api import (
     TransactionResponse,
     Transaction,
     TransactionType,
 )
-from .trader_api.orders_schemas import Order, OrderRequest, PreviewOrder, OrderResponse
-from .trader_api.errors_schema import AccountsAndTradingError
+from schwab_api_wrapper.schemas.trader_api.orders_schemas import (
+    Order,
+    OrderRequest,
+    PreviewOrder,
+    OrderResponse,
+)
+from schwab_api_wrapper.schemas.trader_api.errors_schema import AccountsAndTradingError
 
-from .oauth_schemas import Token, OAuthError
+from schwab_api_wrapper.schemas.oauth import Token, OAuthError
+from .oauth_exception import OAuthException
 
-
-class OAuthException(Exception):
-    def __init__(self, title, error: OAuthError, parameters: dict):
-        super().__init__(title)
-        self.title = title
-        self.error = error
-        self.parameters = parameters
+from .token_censor_filter import TokenCensorFilter
 
 
 # TODO if the response doesn't have a .json() field it will error at us
@@ -50,89 +54,58 @@ class OAuthException(Exception):
 # Either this or we specifically check for a missing json field in an otherwise well-formed response
 
 
-class SchwabAPI:
-    def __init__(
-        self,
-        parameters_file: str,
-        renew_refresh_token: bool = False,
-        immediate_refresh: bool = True,
-    ):
-        self.parameters_file = parameters_file
-        with open(self.parameters_file, "r") as fin:
-            self.parameters = json.load(fin)
+class BaseClient(ABC):
+    parameters: dict = None
 
-        self.client_id = self.parameters[
-            KEY_CLIENT_ID
-        ]  # client id is "app key" on the dev site
-        self.client_secret = self.parameters[
-            KEY_CLIENT_SECRET
-        ]  # client secret is the "app secret" on dev site
-        self.redirect_uri = self.parameters[
-            KEY_URI_REDIRECT
-        ]  # "callback url" on dev site
-        self.refresh_token = self.parameters[KEY_TOKEN_REFRESH]
-        self.access_token = self.parameters[KEY_TOKEN_ACCESS]
-        self.id_token = self.parameters[KEY_TOKEN_ID]
-        self.refresh_token_valid_until = datetime.fromisoformat(
-            self.parameters[KEY_REFRESH_TOKEN_VALID_UNTIL]
-        )
-        self.access_token_valid_until = datetime.fromisoformat(
-            self.parameters[KEY_ACCESS_TOKEN_VALID_UNTIL]
-        )
+    client_id: str = None  # client id is "app key" on the dev site
+    client_secret: str = None  # client secret is the "app secret" on dev site
+    redirect_uri: str = None  # "callback url" on dev site
+    refresh_token: str = None
+    access_token: str = None
+    id_token: str = None
+    refresh_token_valid_until: datetime = None
+    access_token_valid_until: datetime = None
 
+    retry_strategy = ResponseAwareRetry(
+        total=3,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 501, 502, 503],
+        allowed_methods=["GET"],
+    )
+
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+
+    retry_session = requests.Session()
+    retry_session.mount("http://", adapter)
+    retry_session.mount("https://", adapter)
+
+    session = requests.Session()
+
+    # Instantiate and configure the global filter
+    token_filter = TokenCensorFilter()
+    logging.getLogger(__name__).addFilter(token_filter)
+
+    def assert_refresh_token_not_expired(self, renew_refresh_token) -> None:
         if (
             not renew_refresh_token
-            and datetime.now(ZoneInfo('America/New_York')) >= self.refresh_token_valid_until
+            and datetime.now(ZoneInfo("America/New_York"))
+            >= self.refresh_token_valid_until
         ):
             logging.getLogger(__name__).fatal(
-                "The API OAuth Refresh token has expired. Please renew this token by running `python3 -m schwab_api_wrapper [parameters.json]`"
+                "The API OAuth Refresh token has expired. "
+                "Please renew this token by running `python3 -m schwab_api_wrapper [parameters.json]`"
             )
             print(
-                "The API OAuth Refresh token has expired. Please renew this token by running `python3 -m schwab_api_wrapper [parameters.json]`"
+                "The API OAuth Refresh token has expired. "
+                "Please renew this token by running `python3 -m schwab_api_wrapper [parameters.json]`"
             )
             exit(1)
 
-        self.retry_strategy = ResponseAwareRetry(
-            total=3,
-            backoff_factor=1,
-            status_forcelist=[429, 500, 501, 502, 503],
-            allowed_methods=["GET"],
-        )
-
-        self.adapter = HTTPAdapter(max_retries=self.retry_strategy)
-
-        self.retry_session = requests.Session()
-        self.retry_session.mount("http://", self.adapter)
-        self.retry_session.mount("https://", self.adapter)
-
-        self.session = requests.Session()
-
-        if immediate_refresh:
-            self.refresh()
-
-    def __get(
-        self,
-        url: str,
-        params: Optional[dict] = None,
-        retry: bool = False,
-        headers: Optional[dict] = None,
-    ) -> Response:
-        if retry:
-            try:
-                response = self.retry_session.get(url, params=params, headers=headers)
-            except requests.exceptions.RetryError as e:
-                response = e.args[0].response
-                logging.getLogger(__name__).warning(
-                    "Maximum number of retries reached."
-                )
-        else:
-            response = self.session.get(url, params=params, headers=headers)
-
-        return response
-
     @property
     def need_refresh(self) -> bool:
-        return datetime.now(ZoneInfo('America/New_York')) >= self.access_token_valid_until
+        return (
+            datetime.now(ZoneInfo("America/New_York")) >= self.access_token_valid_until
+        )
 
     @property
     def headers(self):
@@ -146,7 +119,7 @@ class SchwabAPI:
             "accept": "application/json",
             "Authorization": f"Bearer {self.access_token}",
         }
-    
+
     def get_refresh_token_expiration(self) -> datetime:
         return self.refresh_token_valid_until
 
@@ -154,8 +127,10 @@ class SchwabAPI:
         token, error = self.refresh_access_token()
 
         if error is not None:
-            raise OAuthException(f"Unable to generate refresh token", error, self.parameters)
-        
+            raise OAuthException(
+                f"Unable to generate refresh token", error, self.parameters
+            )
+
         self.save_token(token)
 
         self.retry_session = requests.Session()
@@ -163,6 +138,8 @@ class SchwabAPI:
         self.retry_session.mount("https://", self.adapter)
 
         self.session = requests.Session()
+
+        self.configurable_refresh()
 
     def app_authorization(self) -> str:
         # request template:
@@ -195,7 +172,9 @@ class SchwabAPI:
 
         return response.url
 
-    def generate_refresh_token(self, authorization_code) -> tuple[Optional[Token], Optional[OAuthError]]:
+    def generate_refresh_token(
+        self, authorization_code
+    ) -> tuple[Optional[Token], Optional[OAuthError]]:
         # Access Token" - Request Example (CURL)
         # {curl -X POST \https://api.schwabapi.com/v1/oauth/token \-H 'Authorization: Basic {BASE64_ENCODED_Client_ID:Client_Secret} \-H 'Content-Type: application/x-www-form-urlencoded' \-d 'grant_type=authorization_code&code={AUTHORIZATION_CODE_VALUE}&redirect_uri=https://example_url.com/callback_example'}
         # Response Example (body)
@@ -255,18 +234,57 @@ class SchwabAPI:
         token, error = self.generate_refresh_token(authorization_code)
 
         if error is not None:
-            raise OAuthException(f"Unable to generate refresh token", error, self.parameters)
-        
+            raise OAuthException(
+                f"Unable to generate refresh token", error, self.parameters
+            )
+
         self.save_token(token, refresh_token_reset=True)
 
+    @abstractmethod
     def save_token(self, token: Token, refresh_token_reset: bool = False):
-        self.refresh_token = token.refresh_token # valid for 7 days
+        pass
+
+    @abstractmethod
+    def load_parameters(self, filepath: str | None = None):
+        pass
+
+    @abstractmethod
+    def dump_parameters(self, filepath: str | None = None):
+        pass
+
+    def set_parameter_instance_values(self, parameters: dict):
+        self.client_id = parameters[
+            KEY_CLIENT_ID
+        ]  # client id is "app key" on the dev site
+
+        self.client_secret = parameters[
+            KEY_CLIENT_SECRET
+        ]  # client secret is the "app secret" on dev site
+
+        self.redirect_uri = parameters[KEY_URI_REDIRECT]  # "callback url" on dev site
+
+        self.refresh_token = parameters[KEY_TOKEN_REFRESH]
+        self.access_token = parameters[KEY_TOKEN_ACCESS]
+        self.id_token = parameters[KEY_TOKEN_ID]
+        self.refresh_token_valid_until = datetime.fromisoformat(
+            parameters[KEY_REFRESH_TOKEN_VALID_UNTIL]
+        )
+        self.access_token_valid_until = datetime.fromisoformat(
+            parameters[KEY_ACCESS_TOKEN_VALID_UNTIL]
+        )
+
+    def update_parameters(self, token: Token, refresh_token_reset: bool = False):
+        self.refresh_token = token.refresh_token  # valid for 7 days
         if refresh_token_reset:
-            self.refresh_token_valid_until = datetime.now(ZoneInfo('America/New_York')) + timedelta(
+            self.refresh_token_valid_until = datetime.now(
+                ZoneInfo("America/New_York")
+            ) + timedelta(
                 days=7
             )  # utc time refresh token is valid until
         self.access_token = token.access_token  # valid for 30 minutes
-        self.access_token_valid_until = datetime.now(ZoneInfo('America/New_York')) + timedelta(
+        self.access_token_valid_until = datetime.now(
+            ZoneInfo("America/New_York")
+        ) + timedelta(
             seconds=1800
         )  # utc time when access token is invalid
         self.id_token = token.id_token
@@ -279,9 +297,6 @@ class SchwabAPI:
         )
 
         self.parameters.update(token.model_dump())
-
-        with open(self.parameters_file, "w") as fin:
-            json.dump(self.parameters, fin, indent=4)
 
     def refresh_access_token(self) -> tuple[Optional[Token], Optional[OAuthError]]:
         # "Refresh Token" - Request Example (cURL)
@@ -304,6 +319,26 @@ class SchwabAPI:
         )
 
         return self.__get_token(payload)
+
+    def __get(
+        self,
+        url: str,
+        params: Optional[dict] = None,
+        retry: bool = False,
+        headers: Optional[dict] = None,
+    ) -> Response:
+        if retry:
+            try:
+                response = self.retry_session.get(url, params=params, headers=headers)
+            except requests.exceptions.RetryError as e:
+                response = e.args[0].response
+                logging.getLogger(__name__).warning(
+                    "Maximum number of retries reached."
+                )
+        else:
+            response = self.session.get(url, params=params, headers=headers)
+
+        return response
 
     def quotes(
         self,
@@ -345,25 +380,20 @@ class SchwabAPI:
             return QuoteResponse(**response.json()), None
         else:
             return None, MarketDataError(**response.json())
-        
+
     def instruments(
-        self,
-        symbols: list[str],
-        projection: Projection,
-        retry: bool = False
+        self, symbols: list[str], projection: Projection, retry: bool = False
     ) -> tuple[Optional[InstrumentsRoot], Optional[MarketDataError]]:
         """
         Get Instruments details by using different projections. Get more specific fundamental instrument data by using fundamental as the projection.
 
         Parameters:
-            symbol: symbol of a security
+            symbols: list of symbols of a security
+            retry: retry the request if it fails
             projection: search by available values : symbol-search, symbol-regex, desc-search, desc-regex, search, fundamental
         """
 
-        params = {
-            "symbol": ",".join(symbols),
-            "projection": projection.value
-        }
+        params = {"symbol": ",".join(symbols), "projection": projection.value}
 
         logging.getLogger(__name__).debug("Instruments Params:\n" + pformat(params))
 
@@ -382,11 +412,12 @@ class SchwabAPI:
             if len(data) == 1:
                 return InstrumentsRoot(**response.json()), None
             else:
-                instruments = [default_instrument_response(symbol) for symbol in symbols]
+                instruments = [
+                    default_instrument_response(symbol) for symbol in symbols
+                ]
                 return InstrumentsRoot(instruments=instruments), None
         else:
             return None, MarketDataError(**response.json())
-
 
     def market_hours(
         self,
@@ -399,7 +430,9 @@ class SchwabAPI:
 
         Parameters:
             markets: list of markets, available values: equity, option, bond, future, forex
-            date: valid date range is from currentdate to 1 year from today. It will default to current day if not entered.
+            query_date: valid date range is from currentdate to 1 year from today.
+                It will default to current day if not entered.
+            retry: retry the request if it fails
         """
 
         date_format = "%Y-%m-%d"
@@ -448,15 +481,17 @@ class SchwabAPI:
 
         Parameters:
             market_id: market id, equity, option, bond, future, forex
-            date: valid date range is from currentdate to 1 year from today. It will default to current day if not enetered
+            query_date: valid date range is from currentdate to 1 year from today.
+                It will default to current day if not enetered
+            retry: retry the request if it fails
         """
 
         date_format = "%Y-%m-%d"
 
         if query_date is None:
-            query_date = datetime.now(ZoneInfo('America/New_York')).date()
+            query_date = datetime.now(ZoneInfo("America/New_York")).date()
 
-        today = datetime.now(ZoneInfo('America/New_York')).date()
+        today = datetime.now(ZoneInfo("America/New_York")).date()
         range_beginning = today
         range_ending = today + timedelta(days=365)
 
@@ -506,14 +541,12 @@ class SchwabAPI:
 
         Parameters:
             symbol: The Equity symbol used to look up price history
-            period_type: The chart period being requested. Available values: day, month, year, ytd
-            period: The number of chart period types
-            frequency_type: The time frequency_type
-            frequency: the time frequency duration
+            period_frequency_params: PeriodFrequencyParameters object
             start_date: the start date. If not specified start_date will be (end_date - period) excluding weekends and holidays
             end_date: the end date. If not specified, the end_date will default to the market close of previous business day
             need_extended_hours_data: Need extended hours data
             need_previous_close: Need previous close price/date
+            retry: retry the request if it fails
         """
 
         # build params
@@ -566,9 +599,10 @@ class SchwabAPI:
         logging.getLogger(__name__).debug("Response JSON:\n" + pformat(response.json()))
 
         if response.status_code == STATUS_CODE_OK:
-            return AccountNumbersResponse(
-                response.json()
-            ), None  # response.json() is a list if 200 OK so don't destructure
+            return (
+                AccountNumbersResponse(response.json()),
+                None,
+            )  # response.json() is a list if 200 OK so don't destructure
         else:
             return None, AccountsAndTradingError(**response.json())
 
@@ -583,7 +617,7 @@ class SchwabAPI:
         however the positions on these accounts will be displayed based on the "positions" flag
 
         Parameters:
-            fields: this allows one to determine which fields they want returned
+            account_field: this allows one to determine which fields they want returned
         """
 
         params = {"fields": account_field.value if account_field else ""}
@@ -601,9 +635,7 @@ class SchwabAPI:
         logging.getLogger(__name__).debug("Response JSON:\n" + pformat(response.json()))
 
         if response.status_code == STATUS_CODE_OK:
-            return AccountsResponse(
-                response.json()  # json is a list not a dict
-            ), None
+            return AccountsResponse(response.json()), None  # json is a list not a dict
         else:
             return None, AccountsAndTradingError(**response.json())
 
@@ -622,7 +654,8 @@ class SchwabAPI:
 
         Parameters:
             encrypted_account_number: encrypted ID of the account
-            fields: this allows one to determine which fields they want returned
+            account_field: this allows one to determine which fields they want returned
+            retry: retry the request if it fails
         """
 
         account_url = f"{ACCOUNTS_URL}/{encrypted_account_number}"
@@ -666,13 +699,17 @@ class SchwabAPI:
             from_entered_time.tzinfo is None
             or from_entered_time.tzinfo.utcoffset(from_entered_time) is None
         ):
-            from_entered_time = from_entered_time.replace(tzinfo=ZoneInfo('America/New_York'))
+            from_entered_time = from_entered_time.replace(
+                tzinfo=ZoneInfo("America/New_York")
+            )
 
         if (
             to_entered_time.tzinfo is None
             or to_entered_time.tzinfo.utcoffset(to_entered_time) is None
         ):
-            to_entered_time = to_entered_time.replace(tzinfo=ZoneInfo('America/New_York'))
+            to_entered_time = to_entered_time.replace(
+                tzinfo=ZoneInfo("America/New_York")
+            )
 
         params = {
             "fromEnteredTime": from_entered_time.isoformat(),
@@ -720,13 +757,17 @@ class SchwabAPI:
             from_entered_time.tzinfo is None
             or from_entered_time.tzinfo.utcoffset(from_entered_time) is None
         ):
-            from_entered_time = from_entered_time.replace(tzinfo=ZoneInfo('America/New_York'))
+            from_entered_time = from_entered_time.replace(
+                tzinfo=ZoneInfo("America/New_York")
+            )
 
         if (
             to_entered_time.tzinfo is None
             or to_entered_time.tzinfo.utcoffset(to_entered_time) is None
         ):
-            to_entered_time = to_entered_time.replace(tzinfo=ZoneInfo('America/New_York'))
+            to_entered_time = to_entered_time.replace(
+                tzinfo=ZoneInfo("America/New_York")
+            )
 
         params = {
             "fromEnteredTime": from_entered_time.isoformat(),
@@ -805,7 +846,9 @@ class SchwabAPI:
         if response.status_code == STATUS_CODE_CREATED:
             location = response.headers["Location"]
             order_id = location.split("/")[-1]
-            order_details, error = self.get_single_order(encrypted_account_number, order_id)
+            order_details, error = self.get_single_order(
+                encrypted_account_number, int(order_id)
+            )
             if order_details:
                 return order_details, None
             else:
@@ -813,7 +856,9 @@ class SchwabAPI:
                 new_message = "Order placed successfully. GET order API call failed."
                 if "message" in order_error_json:
                     new_message = f"{new_message} {order_error_json['message']}"
-                return None, AccountsAndTradingError(**{**order_error_json, "message": new_message})
+                return None, AccountsAndTradingError(
+                    **{**order_error_json, "message": new_message}
+                )
         else:
             return None, AccountsAndTradingError(**response.json())
 
@@ -839,9 +884,10 @@ class SchwabAPI:
         if response.status_code == STATUS_CODE_OK:
             return None, None  # is there something else we can return here?
         else:
-            logging.getLogger(__name__).debug("Response JSON:\n" + pformat(response.json()))
+            logging.getLogger(__name__).debug(
+                "Response JSON:\n" + pformat(response.json())
+            )
             return None, AccountsAndTradingError(**response.json())
-
 
     def replace_order(
         self, encrypted_account_number: str, order_id: int, order_request: OrderRequest
@@ -874,7 +920,9 @@ class SchwabAPI:
         if response.status_code == STATUS_CODE_CREATED:
             location = response.headers["Location"]
             order_id = location.split("/")[-1]
-            order_details, error = self.get_single_order(encrypted_account_number, order_id)
+            order_details, error = self.get_single_order(
+                encrypted_account_number, int(order_id)
+            )
             if order_details:
                 return order_details, None
             else:
@@ -882,7 +930,9 @@ class SchwabAPI:
                 new_message = "Order placed successfully. GET order API call failed."
                 if "message" in order_error_json:
                     new_message = f"{new_message} {order_error_json['message']}"
-                return None, AccountsAndTradingError(**{**order_error_json, "message": new_message})
+                return None, AccountsAndTradingError(
+                    **{**order_error_json, "message": new_message}
+                )
         else:
             return None, AccountsAndTradingError(**response.json())
 
@@ -915,7 +965,7 @@ class SchwabAPI:
         )
 
         if response.status_code == STATUS_CODE_OK:
-            return Order(**response.json()), None
+            return PreviewOrder(**response.json()), None
         else:
             return None, AccountsAndTradingError(**response.json())
 
@@ -935,28 +985,27 @@ class SchwabAPI:
             start_date: Specifies that no transactions entered before this time should be returned. Date must be within 60 days from today's date
             end_date: Specifies that no transactions entered after this time should be returned.
             symbol: filter all transactions based on the symbol
-            types: Specifies that only transacitons of this status should be returned
+            transaction_type: Specifies that only transactions of this status should be returned
         """
 
         url = f"{TRADER_API_ENDPOINT}/accounts/{encrypted_account_number}/transactions"
 
         if start_date.tzinfo is None or start_date.tzinfo.utcoffset(start_date) is None:
-            start_date = start_date.replace(tzinfo=ZoneInfo('America/New_York'))
+            start_date = start_date.replace(tzinfo=ZoneInfo("America/New_York"))
 
         if end_date.tzinfo is None or end_date.tzinfo.utcoffset(end_date) is None:
-            end_date = end_date.replace(tzinfo=ZoneInfo('America/New_York'))
+            end_date = end_date.replace(tzinfo=ZoneInfo("America/New_York"))
 
         params = {
             "startDate": start_date.isoformat(),
             "endDate": end_date.isoformat(),
-            "types": ",".join(
-                map(
-                    lambda t_type: t_type.value, 
-                    transaction_type
-                )
-            ) if isinstance(transaction_type, Iterable) else transaction_type.value,
+            "types": (
+                ",".join(map(lambda t_type: t_type.value, transaction_type))
+                if isinstance(transaction_type, Iterable)
+                else transaction_type.value
+            ),
         }
-        
+
         if symbol:
             params["symbol"] = quote(symbol)
 
@@ -1004,3 +1053,7 @@ class SchwabAPI:
             return Transaction(**response.json()), None
         else:
             return None, AccountsAndTradingError(**response.json())
+
+    @abstractmethod
+    def configurable_refresh(self):
+        pass
