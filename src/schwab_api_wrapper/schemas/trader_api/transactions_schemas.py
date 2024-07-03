@@ -106,11 +106,12 @@ class CollectiveInvestmentType(Enum):
 
 class CollectiveInvestment(BaseModel):
     assetType: Literal[AssetType.COLLECTIVE_INVESTMENT]
-    cusip: str
+    cusip: Optional[str] = None
     symbol: str
     description: str
     instrumentId: int
-    netChange: float
+    netChange: Optional[float] = None
+    closingPrice: float
     type: CollectiveInvestmentType
 
 
