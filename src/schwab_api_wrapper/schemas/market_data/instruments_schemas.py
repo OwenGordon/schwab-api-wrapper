@@ -21,6 +21,7 @@ class AssetType(Enum):
 
 class FundamentalInst(BaseModel):
     symbol: str
+    high52: float
     low52: float
     dividendAmount: float
     dividendYield: float
